@@ -237,6 +237,75 @@ class BVH(SpatialStructure):
 
         return best_point, best_dist
 
+    def refit(self, bodies) -> None:
+        """Update AABBs bottom-up for deformable bodies without restructuring.
+
+        When vertices move but topology stays the same, the BVH tree
+        structure (which child contains which triangles) remains valid.
+        Only the bounding boxes need updating.
+
+        This is O(n) instead of O(n log n) for a full rebuild, making it
+        suitable for per-frame updates of deformable meshes during haptic
+        simulation.
+
+        If the tree has not been built yet, falls back to a full build.
+
+        Args:
+            bodies: List of body objects with .vertices and .faces attributes.
+                Must have the same topology as when build() was called.
+        """
+        if self.root is None or not self.all_nodes:
+            self.build(bodies)
+            return
+
+        if not bodies:
+            return
+
+        # Recompute per-triangle data from updated vertex positions
+        v0_list, v1_list, v2_list = [], [], []
+        aabb_min_list, aabb_max_list = [], []
+        centroids_list = []
+
+        for bi, body in enumerate(bodies):
+            verts = body.vertices
+            faces = body.faces
+            v0 = verts[faces[:, 0]]
+            v1 = verts[faces[:, 1]]
+            v2 = verts[faces[:, 2]]
+            stacked = np.stack([v0, v1, v2], axis=1)
+            tri_min = stacked.min(axis=1)
+            tri_max = stacked.max(axis=1)
+            cent = stacked.mean(axis=1)
+
+            centroids_list.append(cent)
+            v0_list.append(v0)
+            v1_list.append(v1)
+            v2_list.append(v2)
+            aabb_min_list.append(tri_min)
+            aabb_max_list.append(tri_max)
+
+        self._centroids = np.concatenate(centroids_list)
+        self._v0 = np.concatenate(v0_list)
+        self._v1 = np.concatenate(v1_list)
+        self._v2 = np.concatenate(v2_list)
+        self._tri_aabb_min = np.concatenate(aabb_min_list)
+        self._tri_aabb_max = np.concatenate(aabb_max_list)
+
+        # Bottom-up refit: update each node's AABB from its triangles/children
+        # Process in reverse order so children are updated before parents
+        for node in reversed(self.all_nodes):
+            if node.is_leaf:
+                # Leaf: recompute AABB from triangle data
+                idx = node.tri_indices
+                if len(idx) > 0:
+                    node.aabb_min = self._tri_aabb_min[idx].min(axis=0)
+                    node.aabb_max = self._tri_aabb_max[idx].max(axis=0)
+            else:
+                # Internal node: union of children AABBs
+                if node.left is not None and node.right is not None:
+                    node.aabb_min = np.minimum(node.left.aabb_min, node.right.aabb_min)
+                    node.aabb_max = np.maximum(node.left.aabb_max, node.right.aabb_max)
+
     def get_viz_data(self, max_depth: int = 6) -> List[dict]:
         """Return BVH node visualization data up to max_depth."""
         viz = []
