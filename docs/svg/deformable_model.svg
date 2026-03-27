@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; fill: #e6edf3; }
+      .title { font-size: 16px; font-weight: bold; fill: #58a6ff; }
+      .label { font-size: 12px; fill: #e6edf3; }
+      .sublabel { font-size: 10px; fill: #8b949e; }
+      .param { font-size: 12px; fill: #d2a8ff; font-style: italic; }
+      .mass { fill: #58a6ff; stroke: #79c0ff; stroke-width: 1.5; }
+      .mass-rest { fill: none; stroke: #58a6ff; stroke-width: 1; stroke-dasharray: 4,3; stroke-opacity: 0.4; }
+      .spring { fill: none; stroke: #7ee787; stroke-width: 1.8; }
+      .damper-body { fill: none; stroke: #f0883e; stroke-width: 1.5; }
+      .damper-piston { fill: none; stroke: #f0883e; stroke-width: 2; }
+      .force-arrow { fill: #f97583; stroke: #f97583; stroke-width: 2; }
+      .rest-shape { fill: none; stroke: #8b949e; stroke-width: 1; stroke-dasharray: 5,4; stroke-opacity: 0.4; }
+    </style>
+    <marker id="arrowhead-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#f97583"/>
+    </marker>
+    <marker id="arrowhead-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#58a6ff"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" fill="#0d1117"/>
+
+  <!-- Title -->
+  <text class="title" x="400" y="32" text-anchor="middle">Mass-Spring-Damper Deformable Model</text>
+
+  <!-- Equation -->
+  <text class="label" x="400" y="58" text-anchor="middle" fill="#8b949e">M*a + D*v + K*x = f_ext</text>
+
+  <!-- Rest shape (ghost) -->
+  <!-- Row 1 rest -->
+  <circle class="mass-rest" cx="200" cy="140" r="12"/>
+  <circle class="mass-rest" cx="340" cy="140" r="12"/>
+  <circle class="mass-rest" cx="480" cy="140" r="12"/>
+  <!-- Row 2 rest -->
+  <circle class="mass-rest" cx="200" cy="280" r="12"/>
+  <circle class="mass-rest" cx="340" cy="280" r="12"/>
+  <circle class="mass-rest" cx="480" cy="280" r="12"/>
+  <!-- Row 3 rest -->
+  <circle class="mass-rest" cx="200" cy="420" r="12"/>
+  <circle class="mass-rest" cx="340" cy="420" r="12"/>
+  <circle class="mass-rest" cx="480" cy="420" r="12"/>
+  <!-- Rest shape lines -->
+  <line class="rest-shape" x1="212" y1="140" x2="328" y2="140"/>
+  <line class="rest-shape" x1="352" y1="140" x2="468" y2="140"/>
+  <line class="rest-shape" x1="212" y1="280" x2="328" y2="280"/>
+  <line class="rest-shape" x1="352" y1="280" x2="468" y2="280"/>
+  <line class="rest-shape" x1="212" y1="420" x2="328" y2="420"/>
+  <line class="rest-shape" x1="352" y1="420" x2="468" y2="420"/>
+  <line class="rest-shape" x1="200" y1="152" x2="200" y2="268"/>
+  <line class="rest-shape" x1="340" y1="152" x2="340" y2="268"/>
+  <line class="rest-shape" x1="480" y1="152" x2="480" y2="268"/>
+  <line class="rest-shape" x1="200" y1="292" x2="200" y2="408"/>
+  <line class="rest-shape" x1="340" y1="292" x2="340" y2="408"/>
+  <line class="rest-shape" x1="480" y1="292" x2="480" y2="408"/>
+  <text class="sublabel" x="145" y="138">Rest shape</text>
+
+  <!-- Deformed positions (shifted right and down slightly) -->
+  <!-- Row 1 deformed -->
+  <!-- Node (0,0) -->
+  <circle class="mass" cx="210" cy="145" r="12"/>
+  <!-- Node (1,0) pushed by force -->
+  <circle class="mass" cx="365" cy="130" r="12"/>
+  <!-- Node (2,0) -->
+  <circle class="mass" cx="490" cy="138" r="12"/>
+
+  <!-- Row 2 deformed -->
+  <circle class="mass" cx="205" cy="285" r="12"/>
+  <circle class="mass" cx="355" cy="275" r="12"/>
+  <circle class="mass" cx="485" cy="278" r="12"/>
+
+  <!-- Row 3 deformed -->
+  <circle class="mass" cx="202" cy="422" r="12"/>
+  <circle class="mass" cx="342" cy="418" r="12"/>
+  <circle class="mass" cx="482" cy="420" r="12"/>
+
+  <!-- Springs (zigzag lines between nodes) -->
+  <!-- Horizontal springs Row 1 -->
+  <path class="spring" d="M222,145 L240,140 L255,150 L270,140 L285,150 L300,140 L315,150 L330,140 L345,150 L353,130"/>
+  <path class="spring" d="M377,130 L390,125 L400,135 L410,125 L420,135 L430,125 L440,135 L450,125 L460,135 L478,138"/>
+
+  <!-- Horizontal springs Row 2 -->
+  <path class="spring" d="M217,285 L235,280 L250,290 L265,280 L280,290 L295,280 L310,290 L325,280 L343,275"/>
+  <path class="spring" d="M367,275 L382,270 L395,280 L408,270 L420,280 L435,270 L450,280 L460,270 L473,278"/>
+
+  <!-- Vertical springs Col 1 -->
+  <path class="spring" d="M210,157 L205,175 L215,190 L205,205 L215,220 L205,235 L215,250 L205,265 L205,273"/>
+
+  <!-- Vertical springs Col 2 -->
+  <path class="spring" d="M365,142 L360,160 L370,175 L360,190 L370,205 L360,220 L370,235 L360,250 L355,263"/>
+
+  <!-- Vertical springs Col 3 -->
+  <path class="spring" d="M490,150 L485,168 L495,183 L485,198 L495,213 L485,228 L495,243 L485,258 L485,266"/>
+
+  <!-- Vertical springs Row 2 to 3 -->
+  <path class="spring" d="M205,297 L200,315 L210,330 L200,345 L210,360 L200,375 L210,390 L202,410"/>
+  <path class="spring" d="M355,287 L350,305 L360,320 L350,335 L360,350 L350,365 L360,380 L342,406"/>
+  <path class="spring" d="M485,290 L480,308 L490,323 L480,338 L490,353 L480,368 L490,383 L482,408"/>
+
+  <!-- Damper symbol between nodes (1,0) and (2,0), parallel to spring -->
+  <!-- Damper body (rectangle) -->
+  <rect class="damper-body" x="405" y="108" width="30" height="14" transform="rotate(-5,420,115)"/>
+  <!-- Damper piston -->
+  <line class="damper-piston" x1="390" y1="115" x2="408" y2="114"/>
+  <line class="damper-piston" x1="433" y1="112" x2="455" y2="112"/>
+
+  <!-- External force arrow on node (1,0) -->
+  <line class="force-arrow" x1="365" y1="80" x2="365" y2="116" marker-end="url(#arrowhead-red)"/>
+  <text class="param" x="375" y="85" fill="#f97583">F_ext</text>
+
+  <!-- Parameter labels -->
+  <!-- Mass label -->
+  <line x1="210" y1="157" x2="230" y2="170" stroke="#58a6ff" stroke-width="0.8"/>
+  <text class="param" x="233" y="174">m</text>
+
+  <!-- Spring label -->
+  <text class="param" x="268" y="130" fill="#7ee787">k</text>
+
+  <!-- Damper label -->
+  <text class="param" x="415" y="100" fill="#f0883e">b</text>
+
+  <!-- Legend box -->
+  <rect x="600" y="100" width="180" height="200" fill="#161b22" stroke="#30363d" stroke-width="1" rx="6"/>
+  <text class="label" x="690" y="124" text-anchor="middle" fill="#58a6ff">Legend</text>
+
+  <!-- Mass legend -->
+  <circle cx="625" cy="150" r="8" fill="#58a6ff" stroke="#79c0ff" stroke-width="1.5"/>
+  <text class="sublabel" x="642" y="154">Mass point (m)</text>
+
+  <!-- Spring legend -->
+  <path d="M615,178 L622,173 L629,183 L636,173 L643,183" fill="none" stroke="#7ee787" stroke-width="1.8"/>
+  <text class="sublabel" x="652" y="182">Spring (k)</text>
+
+  <!-- Damper legend -->
+  <rect x="617" y="200" width="20" height="10" fill="none" stroke="#f0883e" stroke-width="1.5"/>
+  <line x1="612" y1="205" x2="619" y2="205" stroke="#f0883e" stroke-width="2"/>
+  <line x1="635" y1="205" x2="642" y2="205" stroke="#f0883e" stroke-width="2"/>
+  <text class="sublabel" x="652" y="209">Damper (b)</text>
+
+  <!-- Force legend -->
+  <line x1="618" y1="228" x2="618" y2="240" stroke="#f97583" stroke-width="2" marker-end="url(#arrowhead-red)"/>
+  <text class="sublabel" x="642" y="240">External force</text>
+
+  <!-- Rest shape legend -->
+  <circle cx="625" cy="268" r="8" fill="none" stroke="#58a6ff" stroke-width="1" stroke-dasharray="4,3" stroke-opacity="0.4"/>
+  <text class="sublabel" x="642" y="272">Rest position</text>
+
+  <!-- Stability note -->
+  <text class="sublabel" x="400" y="478" text-anchor="middle">Stability: dt &lt; 2/omega_max where omega_max = sqrt(k_max/m_min)</text>
+</svg>
