@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Three.js Minimal Test</title>
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: monospace; }
+        #log { position: fixed; top: 10px; left: 10px; z-index: 100; font-size: 12px; }
+        canvas { display: block; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="log">Loading...</div>
+    <script>
+    const log = document.getElementById('log');
+    function addLog(msg) {
+        console.log(msg);
+        log.innerHTML += '<br>' + msg;
+    }
+
+    async function main() {
+        try {
+            addLog('Three.js version: ' + THREE.REVISION);
+
+            // 1. Create scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111122);
+            addLog('Scene created');
+
+            // 2. Camera
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 100);
+            camera.position.set(2, 2, 4);
+            camera.lookAt(0, 0.5, 0);
+            addLog('Camera at (2,2,4)');
+
+            // 3. Renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            addLog('WebGL renderer created');
+
+            // 4. Lights
+            scene.add(new THREE.AmbientLight(0x404040, 0.5));
+            const dir = new THREE.DirectionalLight(0xffffff, 1);
+            dir.position.set(5, 8, 5);
+            scene.add(dir);
+
+            // 5. Orbit controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0.5, 0);
+
+            // 6. Fetch scene data from API
+            addLog('Fetching /api/scene...');
+            const resp = await fetch('/api/scene');
+            const state = await resp.json();
+            addLog('Got ' + state.bodies.length + ' bodies, ' + state.collision_count + ' collisions');
+
+            // 7. Render bodies
+            for (const body of state.bodies) {
+                const verts = body.vertices;
+                const faces = body.faces;
+                const color = body.color;
+                const collFaces = new Set(body.collision_faces);
+
+                const positions = [];
+                const colors = [];
+                const baseColor = new THREE.Color(color[0], color[1], color[2]);
+                const redColor = new THREE.Color(1, 0.2, 0.15);
+
+                for (let fi = 0; fi < faces.length; fi++) {
+                    const [i0, i1, i2] = faces[fi];
+                    positions.push(verts[i0][0], verts[i0][1], verts[i0][2]);
+                    positions.push(verts[i1][0], verts[i1][1], verts[i1][2]);
+                    positions.push(verts[i2][0], verts[i2][1], verts[i2][2]);
+                    const c = collFaces.has(fi) ? redColor : baseColor;
+                    colors.push(c.r, c.g, c.b, c.r, c.g, c.b, c.r, c.g, c.b);
+                }
+
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                geo.computeVertexNormals();
+
+                const mat = new THREE.MeshPhongMaterial({
+                    vertexColors: true,
+                    side: THREE.DoubleSide,
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                scene.add(mesh);
+                addLog('Added ' + body.name + ': ' + verts.length + ' verts, ' + faces.length + ' faces');
+            }
+
+            // 8. Probe
+            const probeMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.08, 16, 16),
+                new THREE.MeshPhongMaterial({ color: 0xffd700, emissive: 0x664400 })
+            );
+            const p = state.probe.position;
+            probeMesh.position.set(p[0], p[1], p[2]);
+            scene.add(probeMesh);
+            addLog('Probe at ' + JSON.stringify(p));
+
+            // 9. Grid
+            scene.add(new THREE.GridHelper(6, 12, 0x333333, 0x222222));
+            scene.add(new THREE.AxesHelper(1.5));
+
+            addLog('Rendering...');
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            addLog('SUCCESS - You should see 3D objects above');
+
+        } catch (e) {
+            addLog('ERROR: ' + e.message);
+            console.error(e);
+        }
+    }
+
+    main();
+    </script>
+</body>
+</html>
