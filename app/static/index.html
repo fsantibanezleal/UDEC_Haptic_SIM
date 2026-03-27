@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UDEC Haptic SIM</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header id="header">
+        <h1>UDEC Haptic SIM</h1>
+        <span class="subtitle">3D Collision Detection &amp; Haptic Force Feedback</span>
+        <button id="helpBtn" title="Help">?</button>
+    </header>
+    <div id="app">
+        <div id="viewport">
+            <canvas id="renderCanvas"></canvas>
+            <div id="overlay">
+                <span id="fpsDisplay">FPS: --</span>
+                <span id="collisionDisplay">Collisions: 0</span>
+                <span id="forceDisplay">Force: 0.000 N</span>
+            </div>
+            <div id="keyHints">
+                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> probe |
+                <kbd>Q</kbd><kbd>E</kbd> up/down |
+                <kbd>←→↑↓</kbd> move body
+            </div>
+            <div id="statusBar">Loading...</div>
+        </div>
+        <aside id="panel">
+            <div class="panel-section"><h3>Scene</h3>
+                <button class="btn" id="resetBtn">Reset Scene</button>
+                <button class="btn" id="demoBtn" style="background:#d29922;color:#000;font-weight:600">▶ Auto Demo</button>
+                <label class="file-label">Load OBJ<input type="file" id="objFile" accept=".obj" hidden></label>
+            </div>
+            <div class="panel-section"><h3>Probe Position</h3>
+                <div class="slider-row"><label>X</label><input type="range" id="probeX" min="-3" max="3" step="0.05" value="0"><span id="pxv">0.00</span></div>
+                <div class="slider-row"><label>Y</label><input type="range" id="probeY" min="-3" max="3" step="0.05" value="0"><span id="pyv">0.00</span></div>
+                <div class="slider-row"><label>Z</label><input type="range" id="probeZ" min="-3" max="3" step="0.05" value="2"><span id="pzv">2.00</span></div>
+            </div>
+            <div class="panel-section"><h3>Physics</h3>
+                <div class="slider-row"><label>Stiffness (k)</label><input type="range" id="stiffness" min="0.01" max="2" step="0.01" value="0.2"><span id="stiffnessVal">0.20</span></div>
+                <div class="slider-row"><label>Damping (b)</label><input type="range" id="damping" min="0" max="0.5" step="0.01" value="0.05"><span id="dampingVal">0.05</span></div>
+                <div class="slider-row"><label>Max Force</label><input type="range" id="maxForce" min="0.5" max="10" step="0.1" value="3.3"><span id="maxForceVal">3.30</span></div>
+                <div class="slider-row"><label>Contact Dist</label><input type="range" id="contactDist" min="0.05" max="2" step="0.05" value="0.3"><span id="contactDistVal">0.30</span></div>
+            </div>
+            <div class="panel-section"><h3>Display</h3>
+                <label class="toggle"><input type="checkbox" id="showAABB"><span>Show AABB</span></label>
+                <label class="toggle"><input type="checkbox" id="showNormals"><span>Show Normals</span></label>
+                <label class="toggle"><input type="checkbox" id="showForce" checked><span>Show Force Arrow</span></label>
+                <label class="toggle"><input type="checkbox" id="showWireframe" checked><span>Show Wireframe</span></label>
+            </div>
+            <div class="panel-section"><h3>Transform</h3>
+                <div class="slider-row"><label>Body</label><select id="bodySelect"></select></div>
+                <div class="transform-buttons">
+                    <button class="btn-sm" id="tx+">+X</button><button class="btn-sm" id="tx-">-X</button>
+                    <button class="btn-sm" id="ty+">+Y</button><button class="btn-sm" id="ty-">-Y</button>
+                    <button class="btn-sm" id="tz+">+Z</button><button class="btn-sm" id="tz-">-Z</button>
+                    <button class="btn-sm" id="try+">RotY+</button><button class="btn-sm" id="try-">RotY-</button>
+                </div>
+            </div>
+            <div class="panel-section"><h3>Bodies</h3><div id="bodyInfo"></div></div>
+        </aside>
+    </div>
+    <div id="helpModal" class="modal hidden">
+        <div class="modal-content">
+            <button id="closeHelp" class="close-btn">&times;</button>
+            <h2>UDEC Haptic SIM</h2>
+            <h3>Controls</h3>
+            <ul><li><b>WASD</b> — Move probe XZ</li><li><b>Q/E</b> — Probe up/down</li><li><b>Arrows</b> — Move selected body</li><li><b>Left-drag</b> — Orbit camera</li><li><b>Scroll</b> — Zoom</li><li><b>Right-drag</b> — Pan</li></ul>
+            <h3>Physics</h3>
+            <p><b>Force</b>: F = -k·(probe - surface) - b·velocity</p>
+            <p><b>Collision</b>: Hierarchical AABB (body broad phase → triangle batch filter)</p>
+            <p>Red faces = AABB overlap between triangles of different bodies</p>
+            <h3>Display Options</h3>
+            <p><b>AABB</b>: Axis-aligned bounding boxes per body</p>
+            <p><b>Normals</b>: Per-face normal vectors (pink lines)</p>
+            <p><b>Force Arrow</b>: Red arrow showing feedback force direction</p>
+            <p><b>Wireframe</b>: Mesh wireframe overlay</p>
+        </div>
+    </div>
+
+<script>
+(async function(){
+    'use strict';
+    const $=id=>document.getElementById(id);
+    const statusBar=$('statusBar');
+    const log=m=>{statusBar.textContent=m;statusBar.style.color='#3fb950';};
+    const logErr=m=>{statusBar.textContent='ERR: '+m;statusBar.style.color='#f85149';};
+
+    async function post(path,body){return(await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})})).json();}
+
+    // ===== THREE.JS SETUP =====
+    const container=$('viewport');
+    const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0d1117);
+    const camera=new THREE.PerspectiveCamera(60,container.clientWidth/container.clientHeight,0.01,100);
+    camera.position.set(3,2.5,4);
+    const glR=new THREE.WebGLRenderer({canvas:$('renderCanvas'),antialias:true});
+    glR.setPixelRatio(window.devicePixelRatio); glR.setSize(container.clientWidth,container.clientHeight);
+    const orbit=new THREE.OrbitControls(camera,$('renderCanvas')); orbit.enableDamping=true; orbit.target.set(0,0.3,0);
+    scene.add(new THREE.AmbientLight(0x404050,0.6));
+    const dl=new THREE.DirectionalLight(0xffffff,0.9);dl.position.set(5,8,5);scene.add(dl);
+    const bl2=new THREE.DirectionalLight(0x4488cc,0.3);bl2.position.set(-3,-2,-5);scene.add(bl2);
+    const grid2=new THREE.GridHelper(6,12,0x30363d,0x21262d);grid2.position.y=-1.5;scene.add(grid2);
+    scene.add(new THREE.AxesHelper(1.5));
+
+    // Probe + force visuals
+    const probeMesh=new THREE.Mesh(new THREE.SphereGeometry(0.08,16,16),new THREE.MeshPhongMaterial({color:0xffd700,emissive:0x664400}));
+    scene.add(probeMesh);
+    const forceArrow=new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(),0.5,0xff4444,0.08,0.06);
+    forceArrow.visible=false;scene.add(forceArrow);
+    const anchorMesh=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,8),new THREE.MeshBasicMaterial({color:0x00ff88}));
+    anchorMesh.visible=false;scene.add(anchorMesh);
+    const springGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);
+    const springLine=new THREE.Line(springGeo,new THREE.LineBasicMaterial({color:0x00ff88,transparent:true,opacity:0.5}));
+    springLine.visible=false;scene.add(springLine);
+
+    // Overlay groups
+    let bodyMeshes=[],wireMeshes=[];
+    const aabbGroup=new THREE.Group();aabbGroup.visible=false;scene.add(aabbGroup);
+    const normalsGroup=new THREE.Group();normalsGroup.visible=false;scene.add(normalsGroup);
+    let showForceFlag=true;
+
+    const probe={x:0,y:0,z:2};
+
+    // ===== BUILD 3D MESHES FROM BACKEND STATE =====
+    function renderState(state){
+        if(!state||!state.bodies)return;
+        // Clear old
+        for(const m of bodyMeshes){scene.remove(m);m.geometry?.dispose();m.material?.dispose();}
+        for(const m of wireMeshes){scene.remove(m);m.geometry?.dispose();m.material?.dispose();}
+        bodyMeshes=[];wireMeshes=[];
+        while(aabbGroup.children.length){const c=aabbGroup.children[0];aabbGroup.remove(c);c.geometry?.dispose();c.material?.dispose();}
+        while(normalsGroup.children.length){const c=normalsGroup.children[0];normalsGroup.remove(c);c.geometry?.dispose();c.material?.dispose();}
+
+        for(const body of state.bodies){
+            const v=body.vertices,f=body.faces,col=body.color,cs=new Set(body.collision_faces);
+            const pos=[],clr=[];
+            const bc=new THREE.Color(col[0],col[1],col[2]),rc=new THREE.Color(1,0.2,0.15);
+            for(let fi=0;fi<f.length;fi++){
+                const[i0,i1,i2]=f[fi];
+                for(const vi of[i0,i1,i2]){pos.push(v[vi][0],v[vi][1],v[vi][2]);const c=cs.has(fi)?rc:bc;clr.push(c.r,c.g,c.b);}
+            }
+            const geo=new THREE.BufferGeometry();
+            geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+            geo.setAttribute('color',new THREE.Float32BufferAttribute(clr,3));
+            geo.computeVertexNormals();
+            const mesh=new THREE.Mesh(geo,new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:40}));
+            scene.add(mesh);bodyMeshes.push(mesh);
+            // Wireframe
+            const wire=new THREE.Mesh(geo.clone(),new THREE.MeshBasicMaterial({wireframe:true,color:0x446688,transparent:true,opacity:0.15}));
+            wire.visible=$('showWireframe').checked;
+            scene.add(wire);wireMeshes.push(wire);
+            // AABB
+            if(body.aabb_min&&body.aabb_max){
+                const mn=body.aabb_min,mx=body.aabb_max;
+                const bx=new THREE.Mesh(new THREE.BoxGeometry(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2]),
+                    new THREE.MeshBasicMaterial({color:0x58a6ff,wireframe:true,transparent:true,opacity:0.3}));
+                bx.position.set((mn[0]+mx[0])/2,(mn[1]+mx[1])/2,(mn[2]+mx[2])/2);
+                aabbGroup.add(bx);
+            }
+            // Normals
+            if(body.normals){
+                for(let fi=0;fi<f.length;fi++){
+                    const[i0,i1,i2]=f[fi];
+                    const cx=(v[i0][0]+v[i1][0]+v[i2][0])/3,cy=(v[i0][1]+v[i1][1]+v[i2][1])/3,cz=(v[i0][2]+v[i1][2]+v[i2][2])/3;
+                    const n=body.normals[fi];
+                    const ng=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(cx,cy,cz),new THREE.Vector3(cx+n[0]*0.12,cy+n[1]*0.12,cz+n[2]*0.12)]);
+                    normalsGroup.add(new THREE.Line(ng,new THREE.LineBasicMaterial({color:0xff88ff,transparent:true,opacity:0.5})));
+                }
+            }
+        }
+        // Probe
+        if(state.probe){const p=state.probe.position;probeMesh.position.set(p[0],p[1],p[2]);}
+        // Force
+        const ff=state.force;
+        if(ff&&showForceFlag&&ff.magnitude>0.001){
+            const fv=ff.vector,dir=new THREE.Vector3(fv[0],fv[1],fv[2]).normalize();
+            forceArrow.position.copy(probeMesh.position);forceArrow.setDirection(dir);
+            forceArrow.setLength(Math.min(ff.magnitude*2,2),0.08,0.06);forceArrow.visible=true;
+        }else{forceArrow.visible=false;}
+        if(ff&&ff.is_contacting&&ff.anchor){
+            const a=ff.anchor;anchorMesh.position.set(a[0],a[1],a[2]);anchorMesh.visible=true;
+            const pts=springLine.geometry.attributes.position;
+            pts.setXYZ(0,probeMesh.position.x,probeMesh.position.y,probeMesh.position.z);
+            pts.setXYZ(1,a[0],a[1],a[2]);pts.needsUpdate=true;springLine.visible=true;
+        }else{anchorMesh.visible=false;springLine.visible=false;}
+        // UI
+        $('collisionDisplay').textContent='Collisions: '+(state.collision_count||0);
+        $('forceDisplay').textContent='Force: '+(ff?ff.magnitude:0).toFixed(3)+' N';
+        const sel=$('bodySelect');if(sel&&state.bodies){
+            const cur=sel.value;sel.innerHTML='';
+            state.bodies.forEach((b,i)=>{const o=document.createElement('option');o.value=i;o.textContent=b.name;sel.appendChild(o);});
+            if(cur<state.bodies.length)sel.value=cur;
+        }
+        $('bodyInfo').innerHTML=state.bodies.map(b=>`<div>${b.name} V:${b.vertices.length} F:${b.faces.length} C:${b.collision_faces.length}</div>`).join('');
+    }
+
+    // ===== API: single POST returns full state =====
+    async function doStep(){try{renderState(await post('/api/step'));return true;}catch(e){logErr(e.message);return false;}}
+    async function doTransform(p){try{renderState(await post('/api/transform',p));}catch(e){logErr(e.message);}}
+    async function doProbe(){try{renderState(await post('/api/probe',probe));}catch(e){logErr(e.message);}}
+
+    // ===== INIT =====
+    log('Loading scene...');
+    if(await doStep()) log('Ready — WASD=probe, Arrows=body');
+
+    // Render loop (Three.js only — no computation)
+    let fc=0,lt=performance.now();
+    (function anim(){requestAnimationFrame(anim);orbit.update();glR.render(scene,camera);
+        fc++;if(performance.now()-lt>1000){$('fpsDisplay').textContent='FPS: '+fc;fc=0;lt=performance.now();}})();
+    window.addEventListener('resize',()=>{camera.aspect=container.clientWidth/container.clientHeight;camera.updateProjectionMatrix();glR.setSize(container.clientWidth,container.clientHeight);});
+
+    // ===== SLIDERS =====
+    function syncSliders(){$('probeX').value=probe.x.toFixed(2);$('pxv').textContent=probe.x.toFixed(2);
+        $('probeY').value=probe.y.toFixed(2);$('pyv').textContent=probe.y.toFixed(2);
+        $('probeZ').value=probe.z.toFixed(2);$('pzv').textContent=probe.z.toFixed(2);}
+
+    for(const[ax,id,vid]of[['x','probeX','pxv'],['y','probeY','pyv'],['z','probeZ','pzv']]){
+        $(id).addEventListener('input',function(){probe[ax]=parseFloat(this.value);$(vid).textContent=this.value;doProbe();});}
+    for(const[id,key,vid]of[['stiffness','stiffness','stiffnessVal'],['damping','damping','dampingVal'],['maxForce','max_force','maxForceVal'],['contactDist','contact_threshold','contactDistVal']]){
+        $(id).addEventListener('input',function(){$(vid).textContent=parseFloat(this.value).toFixed(2);post('/api/settings',{[key]:parseFloat(this.value)});});}
+
+    // ===== TOGGLES =====
+    $('showAABB').addEventListener('change',function(){aabbGroup.visible=this.checked;});
+    $('showNormals').addEventListener('change',function(){normalsGroup.visible=this.checked;});
+    $('showForce').addEventListener('change',function(){showForceFlag=this.checked;});
+    $('showWireframe').addEventListener('change',function(){for(const w of wireMeshes)w.visible=this.checked;});
+
+    // ===== TRANSFORM BUTTONS =====
+    const S=0.2;
+    for(const[id,d]of Object.entries({'tx+':{dx:S},'tx-':{dx:-S},'ty+':{dy:S},'ty-':{dy:-S},'tz+':{dz:S},'tz-':{dz:-S}})){
+        $(id).addEventListener('click',()=>doTransform({body_index:parseInt($('bodySelect').value)||0,transform_type:'translate',dx:d.dx||0,dy:d.dy||0,dz:d.dz||0}));}
+    $('try+').addEventListener('click',()=>doTransform({body_index:parseInt($('bodySelect').value)||0,transform_type:'rotate',axis_x:0,axis_y:1,axis_z:0,angle:15}));
+    $('try-').addEventListener('click',()=>doTransform({body_index:parseInt($('bodySelect').value)||0,transform_type:'rotate',axis_x:0,axis_y:1,axis_z:0,angle:-15}));
+
+    // ===== BUTTONS =====
+    $('resetBtn').addEventListener('click',async()=>{await post('/api/scene/reset');await doStep();log('Reset');});
+    $('helpBtn').addEventListener('click',()=>$('helpModal').classList.remove('hidden'));
+    $('closeHelp').addEventListener('click',()=>$('helpModal').classList.add('hidden'));
+    $('helpModal').addEventListener('click',e=>{if(e.target===$('helpModal'))$('helpModal').classList.add('hidden');});
+    $('objFile').addEventListener('change',async function(){if(!this.files.length)return;const fd=new FormData();fd.append('file',this.files[0]);
+        await fetch('/api/scene/load',{method:'POST',body:fd});await doStep();this.value='';});
+
+    // ===== KEYBOARD =====
+    const keys={};let busy=false;
+    window.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code.startsWith('Arrow')||e.code.startsWith('Page'))e.preventDefault();});
+    window.addEventListener('keyup',e=>{keys[e.code]=false;});
+    setInterval(async()=>{
+        if(busy)return;busy=true;
+        // Probe
+        let pm=false;
+        if(keys.KeyW){probe.z-=0.06;pm=true;}if(keys.KeyS){probe.z+=0.06;pm=true;}
+        if(keys.KeyA){probe.x-=0.06;pm=true;}if(keys.KeyD){probe.x+=0.06;pm=true;}
+        if(keys.KeyQ){probe.y-=0.06;pm=true;}if(keys.KeyE){probe.y+=0.06;pm=true;}
+        probe.x=Math.max(-3,Math.min(3,probe.x));probe.y=Math.max(-3,Math.min(3,probe.y));probe.z=Math.max(-3,Math.min(3,probe.z));
+        if(pm){syncSliders();await doProbe();}
+        // Body
+        let bx=0,by=0,bz=0;
+        if(keys.ArrowLeft)bx=-0.1;if(keys.ArrowRight)bx=0.1;if(keys.ArrowUp)bz=-0.1;if(keys.ArrowDown)bz=0.1;
+        if(keys.PageUp)by=0.1;if(keys.PageDown)by=-0.1;
+        if(bx||by||bz)await doTransform({body_index:parseInt($('bodySelect').value)||0,transform_type:'translate',dx:bx,dy:by,dz:bz});
+        busy=false;
+    },80);
+
+    // ===== DEMO =====
+    let demoOn=false,demoT=0;
+    $('demoBtn').addEventListener('click',()=>{demoOn=!demoOn;$('demoBtn').textContent=demoOn?'■ Stop':'▶ Auto Demo';demoT=0;});
+    setInterval(async()=>{if(!demoOn||busy)return;busy=true;demoT+=0.1;const c=demoT%10;
+        try{
+            if(c<3){await doTransform({body_index:0,transform_type:'translate',dx:0.04,dy:0,dz:0});}
+            else if(c<6){const t=(c-3)/3;probe.x=-1+t*2;probe.y=0.3;probe.z=0.3;syncSliders();await doProbe();}
+            else if(c<9){const a=(c-6)*Math.PI*0.7;probe.x=1.2*Math.cos(a);probe.z=1.2*Math.sin(a);probe.y=0.3+0.4*Math.sin(a*2);syncSliders();await doProbe();}
+            else{await post('/api/scene/reset');await doStep();}
+        }catch(e){}busy=false;
+    },150);
+})();
+</script>
+</body>
+</html>
