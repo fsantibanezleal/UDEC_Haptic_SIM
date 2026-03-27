@@ -339,7 +339,240 @@ Composition via Hamilton product avoids gimbal lock and is numerically stable.
 
 ---
 
-## 10. References
+## 10. Haptic Rendering Pipeline
+
+### 10.1 Pipeline Overview
+
+The haptic rendering pipeline transforms raw device position into force feedback at rates sufficient for stable tactile perception. The pipeline stages are:
+
+```
+Device Position (1 kHz)
+    |
+    v
+[Collision Detection] --> penetration depth, contact normal
+    |
+    v
+[Force Computation] --> F = -k*x - b*v (Kelvin-Voigt)
+    |
+    v
+[Force Clamping] --> |F| <= F_max
+    |
+    v
+Device Output (force to actuators)
+```
+
+### 10.2 Latency Requirements
+
+| Loop | Required Rate | Reason |
+|------|--------------|--------|
+| Haptic loop | >= 1 kHz (1 ms) | Stability of rigid contact rendering; below this, the discrete impedance exceeds passivity bounds |
+| Visual loop | ~30-60 Hz (16-33 ms) | Smooth visual animation; human flicker fusion threshold |
+| Collision broad phase | >= 1 kHz | Must keep pace with haptic loop |
+| Collision narrow phase | >= 300 Hz | Can be decoupled if intermediate force interpolation is used |
+
+If the haptic update rate drops below 1 kHz, the maximum stable stiffness decreases linearly (k_max = 2b/T). At 500 Hz the renderable stiffness halves; at 100 Hz it drops by 10x, making rigid surfaces feel soft.
+
+### 10.3 Decoupled Architecture
+
+In practice, many systems decouple the haptic loop from the graphics loop:
+
+```
+Graphics Thread (30-60 Hz):
+  - Render scene
+  - Update octree / BVH if objects move
+  - Compute god-object position (surface proxy)
+
+Haptic Thread (1 kHz):
+  - Read device position
+  - Compute force from god-object anchor
+  - Send force to device
+```
+
+The god-object (Zilles & Salisbury, 1995) acts as a surface proxy that the haptic thread can cheaply query without full collision detection each cycle.
+
+---
+
+## 11. Deformable Object Theory
+
+### 11.1 Mass-Spring-Damper System
+
+A deformable mesh is modeled as a network of point masses connected by spring-damper elements. In matrix form:
+
+```
+M * a + D * v + K * x = f_ext
+```
+
+where:
+- M = diag(m_1, m_2, ..., m_N) is the mass matrix (N x N diagonal)
+- D is the damping matrix (N x N, often proportional: D = alpha*M + beta*K)
+- K is the stiffness matrix (N x N, sparse, topology-dependent)
+- x is the displacement vector (3N x 1 for 3D)
+- f_ext is the external force vector (gravity, haptic probe, etc.)
+
+### 11.2 Eigenvalue Analysis
+
+The undamped free vibration equation M*a + K*x = 0 admits solutions x(t) = phi * cos(omega*t), leading to the generalized eigenvalue problem:
+
+```
+K * phi = omega^2 * M * phi
+```
+
+The natural frequencies are:
+
+```
+omega_n = sqrt(lambda_n)
+```
+
+where lambda_n are the eigenvalues of M^{-1} * K. For a single spring-mass: omega_n = sqrt(k/m).
+
+### 11.3 Stability Condition
+
+For explicit time integration (e.g., symplectic Euler), the timestep must satisfy:
+
+```
+dt < 2 / omega_max
+```
+
+where omega_max = sqrt(k_max / m_min) is the highest natural frequency in the system. Violating this condition causes exponential energy growth and simulation blowup. For a mesh with stiffness k = 10000 N/m and mass m = 0.001 kg:
+
+```
+omega_max = sqrt(10000 / 0.001) = 3162 rad/s
+dt_max = 2 / 3162 ~ 0.63 ms
+```
+
+This means the simulation must run at >= 1587 Hz for stability -- well-matched to the 1 kHz haptic requirement.
+
+### 11.4 Rayleigh Damping
+
+Proportional (Rayleigh) damping sets D = alpha*M + beta*K, which ensures that each mode has damping ratio:
+
+```
+zeta_n = alpha/(2*omega_n) + beta*omega_n/2
+```
+
+Choosing alpha and beta to achieve desired damping at two frequencies fully determines the damping model.
+
+---
+
+## 12. Extended Position-Based Dynamics (XPBD)
+
+### 12.1 From PBD to XPBD
+
+**Position-Based Dynamics (PBD)** (Muller et al., 2007) directly manipulates positions to satisfy constraints, avoiding explicit force computation. However, PBD has a fundamental flaw: the effective stiffness depends on the timestep and the number of solver iterations, making it impossible to specify physically meaningful material parameters.
+
+**XPBD** (Macklin et al., 2016) resolves this by introducing a compliance parameter:
+
+```
+alpha = 1 / k
+```
+
+where k is the physical stiffness (N/m). The regularized compliance is:
+
+```
+alpha_tilde = alpha / (dt^2)
+```
+
+### 12.2 Constraint Projection
+
+For a constraint C(x) = 0 with gradient grad_C, the Lagrange multiplier update is:
+
+```
+delta_lambda = -(C(x) + alpha_tilde * lambda) / (grad_C * M^{-1} * grad_C^T + alpha_tilde)
+```
+
+The position correction is then:
+
+```
+delta_x = M^{-1} * grad_C^T * delta_lambda
+```
+
+### 12.3 Why XPBD is More Physically Correct
+
+| Property | PBD | XPBD |
+|----------|-----|------|
+| Stiffness control | Iteration-dependent | Physical parameter k |
+| Timestep independence | No (stiffer at smaller dt) | Yes (alpha cancels dt) |
+| Convergence | Gauss-Seidel on positions | Gauss-Seidel on Lagrange multipliers |
+| Energy behavior | Artificial dissipation | Bounded energy drift |
+| Material specification | Unitless [0,1] parameter | Physical compliance (m/N) |
+
+XPBD allows direct specification of Young's modulus or spring stiffness, making simulations reproducible and physically meaningful. The Lagrange multiplier formulation also connects to the variational mechanics framework, providing a principled foundation for contact and friction modeling.
+
+---
+
+## 13. Spatial Acceleration Structure Comparison
+
+![Spatial Comparison](svg/spatial_comparison.svg)
+
+| Structure | Build Time | Query Time | Memory | Tightness of Fit | Best For |
+|-----------|-----------|-----------|--------|-------------------|----------|
+| **AABB** | O(N) | O(N) brute, O(log N) tree | O(N) | Loose (axis-aligned) | Fast broad phase; dynamic objects with frequent rebuilds |
+| **OBB** | O(N log N) | O(log N) | O(N) | Tight (oriented) | Static or slowly moving objects; elongated geometry |
+| **Octree** | O(N log N) | O(log N) average | O(N) to O(N log N) | Medium (regular grid) | Uniform distributions; spatial hashing; deformable volumes |
+| **BVH** | O(N log N) | O(log N) worst case | O(N) | Tight (adaptive) | Triangle meshes; ray tracing; deformable surfaces |
+
+**Notes**:
+- AABB trees can be rebuilt in O(N) via refitting when topology does not change, making them ideal for deformable meshes with fixed connectivity.
+- OBB trees provide tighter bounds (reducing narrow-phase tests) but are expensive to rebuild, so they suit static geometry.
+- Octrees provide regular spatial subdivision independent of object geometry, making them natural for volume queries and neighbor searches.
+- BVH (Bounding Volume Hierarchy) adapts to the object's triangle distribution, providing optimal query performance for ray casting and closest-point queries.
+
+---
+
+## 14. Separating Axis Theorem: Proof and OBB Application
+
+### 14.1 Hyperplane Separation Theorem
+
+The SAT is a consequence of the **Hyperplane Separation Theorem** for convex sets:
+
+> If two convex sets A and B in R^n are disjoint, there exists a hyperplane H such that A lies entirely on one side of H and B on the other.
+
+The normal to this separating hyperplane is the **separating axis**. Projecting both sets onto this axis yields non-overlapping intervals.
+
+### 14.2 Sufficiency of Candidate Axes
+
+For two convex polyhedra, the separating hyperplane (if it exists) must be:
+1. Parallel to a face of A, or
+2. Parallel to a face of B, or
+3. Parallel to an edge of A and an edge of B simultaneously (i.e., normal = edge_A x edge_B)
+
+**Proof sketch**: If the separating plane is not parallel to any face, it must "thread" between edges of both polyhedra. The tightest such plane has its normal equal to the cross product of the two closest edges.
+
+### 14.3 OBB-OBB Test: 15 Axes
+
+For two Oriented Bounding Boxes (OBBs), each has 3 unique face normals (the local axes) and 3 unique edge directions (also the local axes). The candidate separating axes are:
+
+```
+3 face normals of OBB_A:  a0, a1, a2
+3 face normals of OBB_B:  b0, b1, b2
+9 edge-edge cross products: a_i x b_j  (i=0..2, j=0..2)
+-----
+Total: 15 axes
+```
+
+For each axis L, project both OBBs and check for interval overlap. If any axis separates the OBBs, they do not intersect.
+
+### 14.4 Why 15 Axes Are Sufficient
+
+An OBB is a convex polyhedron with 6 faces (3 pairs of parallel faces) and 12 edges (3 groups of 4 parallel edges). The unique face normals reduce to 3 (one per axis), and the unique edge directions also reduce to 3 (one per axis). Therefore:
+
+- Face normals: 3 + 3 = 6, but due to parallelism, only 3 + 3 unique directions
+- Edge-edge cross products: 3 x 3 = 9
+
+This gives exactly 15 candidate axes. By the hyperplane separation theorem for convex sets, if none of these 15 axes separates the OBBs, the OBBs must intersect. This result (Gottschalk et al., 1996) forms the basis of the OBBTree collision detection algorithm.
+
+### 14.5 Degenerate Axis Handling
+
+When two edges are parallel, their cross product is the zero vector. This degenerate axis is skipped because parallel edges cannot form a separating plane -- the face normal tests already cover that case. The implementation checks:
+
+```
+if |edge_A x edge_B| < epsilon:
+    skip this axis
+```
+
+---
+
+## 15. References
 
 1. Baraff, D. & Witkin, A. (1997). Physically Based Modeling. SIGGRAPH Course Notes.
 2. Colgate, J.E. & Brown, J.M. (1994). Factors Affecting the Z-Width of a Haptic Display. *IEEE ICRA*.

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500">
+  <defs>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; fill: #e6edf3; }
+      .title { font-size: 14px; font-weight: bold; fill: #58a6ff; }
+      .label { font-size: 11px; fill: #e6edf3; }
+      .sublabel { font-size: 9px; fill: #8b949e; }
+      .panel-bg { fill: #161b22; stroke: #30363d; stroke-width: 1; rx: 6; }
+      .bunny { fill: none; stroke: #7ee787; stroke-width: 1.5; }
+      .box-aabb { fill: none; stroke: #f97583; stroke-width: 2; stroke-dasharray: 6,3; }
+      .box-obb { fill: none; stroke: #d2a8ff; stroke-width: 2; }
+      .octree-line { stroke: #58a6ff; stroke-width: 0.8; stroke-opacity: 0.5; }
+      .bvh-box { fill: none; stroke: #f0883e; stroke-width: 1.2; }
+      .bvh-line { stroke: #f0883e; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="500" fill="#0d1117"/>
+
+  <!-- Main title -->
+  <text x="450" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#58a6ff">Spatial Acceleration Structures Comparison</text>
+
+  <!-- Panel 1: AABB (top-left) -->
+  <rect class="panel-bg" x="20" y="50" width="420" height="200"/>
+  <text class="title" x="230" y="72" text-anchor="middle">AABB (Axis-Aligned Bounding Box)</text>
+
+  <!-- Rotated bunny silhouette (simplified) -->
+  <path class="bunny" d="M140,160 C135,140 130,130 140,115 C145,105 155,95 160,100 C165,90 175,85 180,90 C185,80 190,85 188,95 C195,90 200,95 195,105 C205,110 210,120 200,130 C210,140 205,155 195,165 C185,175 165,180 155,175 C145,172 140,168 140,160Z" transform="rotate(-25,170,135)"/>
+  <!-- AABB box (loose, axis-aligned) -->
+  <rect class="box-aabb" x="100" y="75" width="150" height="130"/>
+  <!-- Labels -->
+  <text class="sublabel" x="80" y="142">Loose</text>
+  <text class="sublabel" x="80" y="154">fit</text>
+
+  <text class="label" x="310" y="110">Build: O(N)</text>
+  <text class="label" x="310" y="130">Query: O(N) brute</text>
+  <text class="label" x="310" y="150">Memory: O(N)</text>
+  <text class="sublabel" x="310" y="175">Axis-aligned, fast rebuild</text>
+  <text class="sublabel" x="310" y="190">Best for: dynamic objects</text>
+
+  <!-- Panel 2: OBB (top-right) -->
+  <rect class="panel-bg" x="460" y="50" width="420" height="200"/>
+  <text class="title" x="670" y="72" text-anchor="middle">OBB (Oriented Bounding Box)</text>
+
+  <!-- Same bunny silhouette -->
+  <path class="bunny" d="M580,160 C575,140 570,130 580,115 C585,105 595,95 600,100 C605,90 615,85 620,90 C625,80 630,85 628,95 C635,90 640,95 635,105 C645,110 650,120 640,130 C650,140 645,155 635,165 C625,175 605,180 595,175 C585,172 580,168 580,160Z" transform="rotate(-25,610,135)"/>
+  <!-- OBB box (tight, oriented) -->
+  <rect class="box-obb" x="555" y="82" width="120" height="108" transform="rotate(-25,615,136)"/>
+  <!-- Labels -->
+  <text class="sublabel" x="530" y="142">Tight</text>
+  <text class="sublabel" x="530" y="154">fit</text>
+
+  <text class="label" x="740" y="110">Build: O(N log N)</text>
+  <text class="label" x="740" y="130">Query: O(log N)</text>
+  <text class="label" x="740" y="150">Memory: O(N)</text>
+  <text class="sublabel" x="740" y="175">Oriented, expensive rebuild</text>
+  <text class="sublabel" x="740" y="190">Best for: static geometry</text>
+
+  <!-- Panel 3: Octree (bottom-left) -->
+  <rect class="panel-bg" x="20" y="270" width="420" height="210"/>
+  <text class="title" x="230" y="292" text-anchor="middle">Octree Subdivision</text>
+
+  <!-- Outer cube -->
+  <rect class="octree-line" x="60" y="310" width="160" height="140" fill="none" stroke-width="1.5" stroke-opacity="0.8"/>
+  <!-- Level 1 subdivisions -->
+  <line class="octree-line" x1="140" y1="310" x2="140" y2="450"/>
+  <line class="octree-line" x1="60" y1="380" x2="220" y2="380"/>
+  <!-- Level 2 subdivisions (top-left quadrant) -->
+  <line class="octree-line" x1="100" y1="310" x2="100" y2="380"/>
+  <line class="octree-line" x1="60" y1="345" x2="140" y2="345"/>
+  <!-- Level 2 subdivisions (bottom-right) -->
+  <line class="octree-line" x1="180" y1="380" x2="180" y2="450"/>
+  <line class="octree-line" x1="140" y1="415" x2="220" y2="415"/>
+
+  <!-- Bunny in octree -->
+  <path class="bunny" d="M100,400 C97,388 95,382 100,372 C103,366 108,360 112,363 C114,357 119,354 121,358 C124,352 126,354 125,361 C128,358 131,361 128,368 C133,371 136,377 131,383 C135,389 133,398 128,402 C123,408 113,410 108,407 C103,405 100,403 100,400Z" transform="rotate(-25,115,385)"/>
+
+  <text class="label" x="270" y="340">Build: O(N log N)</text>
+  <text class="label" x="270" y="360">Query: O(log N) avg</text>
+  <text class="label" x="270" y="380">Memory: O(N) to O(N log N)</text>
+  <text class="sublabel" x="270" y="405">Regular grid, depth-limited</text>
+  <text class="sublabel" x="270" y="420">Best for: uniform distributions,</text>
+  <text class="sublabel" x="270" y="435">deformable volumes</text>
+
+  <!-- Panel 4: BVH (bottom-right) -->
+  <rect class="panel-bg" x="460" y="270" width="420" height="210"/>
+  <text class="title" x="670" y="292" text-anchor="middle">BVH (Bounding Volume Hierarchy)</text>
+
+  <!-- BVH tree structure -->
+  <!-- Root box -->
+  <rect class="bvh-box" x="500" y="320" width="140" height="90" rx="2"/>
+  <!-- Left child -->
+  <rect class="bvh-box" x="500" y="330" width="65" height="75" rx="2" stroke-dasharray="4,2"/>
+  <!-- Right child -->
+  <rect class="bvh-box" x="575" y="325" width="60" height="50" rx="2" stroke-dasharray="4,2"/>
+
+  <!-- Bunny triangles inside -->
+  <polygon points="510,380 530,345 545,385" fill="none" stroke="#7ee787" stroke-width="1"/>
+  <polygon points="520,370 540,340 555,375" fill="none" stroke="#7ee787" stroke-width="1"/>
+  <polygon points="505,395 525,365 540,400" fill="none" stroke="#7ee787" stroke-width="1"/>
+  <polygon points="580,340 600,320 615,345" fill="none" stroke="#7ee787" stroke-width="1"/>
+  <polygon points="585,355 610,335 620,360" fill="none" stroke="#7ee787" stroke-width="1"/>
+
+  <!-- Tree diagram -->
+  <circle cx="720" cy="335" r="8" fill="#f0883e" fill-opacity="0.3" stroke="#f0883e" stroke-width="1"/>
+  <circle cx="695" cy="375" r="6" fill="#f0883e" fill-opacity="0.3" stroke="#f0883e" stroke-width="1"/>
+  <circle cx="745" cy="375" r="6" fill="#f0883e" fill-opacity="0.3" stroke="#f0883e" stroke-width="1"/>
+  <circle cx="680" cy="410" r="4" fill="#7ee787" fill-opacity="0.5" stroke="#7ee787" stroke-width="1"/>
+  <circle cx="710" cy="410" r="4" fill="#7ee787" fill-opacity="0.5" stroke="#7ee787" stroke-width="1"/>
+  <circle cx="732" cy="410" r="4" fill="#7ee787" fill-opacity="0.5" stroke="#7ee787" stroke-width="1"/>
+  <circle cx="758" cy="410" r="4" fill="#7ee787" fill-opacity="0.5" stroke="#7ee787" stroke-width="1"/>
+  <line class="bvh-line" x1="720" y1="343" x2="695" y2="369"/>
+  <line class="bvh-line" x1="720" y1="343" x2="745" y2="369"/>
+  <line class="bvh-line" x1="695" y1="381" x2="680" y2="406"/>
+  <line class="bvh-line" x1="695" y1="381" x2="710" y2="406"/>
+  <line class="bvh-line" x1="745" y1="381" x2="732" y2="406"/>
+  <line class="bvh-line" x1="745" y1="381" x2="758" y2="406"/>
+
+  <text class="sublabel" x="700" y="440" text-anchor="middle">Binary tree</text>
+  <text class="sublabel" x="700" y="452" text-anchor="middle">of bounding boxes</text>
+
+  <text class="label" x="770" y="340">Build: O(N log N)</text>
+  <text class="label" x="770" y="360">Query: O(log N)</text>
+  <text class="label" x="770" y="380">Memory: O(N)</text>
+  <text class="sublabel" x="770" y="405">Adaptive, tight</text>
+  <text class="sublabel" x="770" y="420">Best for: triangle</text>
+  <text class="sublabel" x="770" y="435">meshes, ray tracing</text>
+</svg>
