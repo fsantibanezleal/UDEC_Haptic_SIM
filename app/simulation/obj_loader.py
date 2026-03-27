@@ -43,10 +43,14 @@ numpy arrays suitable for the :class:`RigidBody` constructor.
 - Original C++ Cargador.cpp / Cargador.h from UDEC Haptic SIM (2008)
 """
 import os
+from pathlib import Path
 import numpy as np
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from .rigid_body import RigidBody
+
+# Directory for built-in OBJ models
+_MODELS_DIR = Path(__file__).parent.parent / "static" / "models"
 
 
 def parse_face_index(token: str) -> int:
@@ -233,4 +237,111 @@ def create_sphere(
         np.array(faces, dtype=np.int32),
         name=name,
         color=color,
+    )
+
+
+def create_torus(
+    center: np.ndarray,
+    major_r: float = 0.5,
+    minor_r: float = 0.2,
+    rings: int = 16,
+    sectors: int = 16,
+    name: str = "torus",
+    color: Optional[list] = None,
+) -> RigidBody:
+    """Create a parametric torus mesh.
+
+    Parameters
+    ----------
+    center : array_like
+        Centre of the torus [x, y, z].
+    major_r : float
+        Major radius (distance from center of tube to center of torus).
+    minor_r : float
+        Minor radius (radius of the tube).
+    rings : int
+        Number of rings around the torus.
+    sectors : int
+        Number of sectors in each ring cross-section.
+    name : str
+        Body name.
+    color : list[float], optional
+        RGBA colour.
+    """
+    c = np.asarray(center, dtype=np.float64)
+    verts = []
+    faces = []
+
+    for i in range(rings):
+        theta = 2.0 * np.pi * i / rings
+        cos_t = np.cos(theta)
+        sin_t = np.sin(theta)
+
+        for j in range(sectors):
+            phi = 2.0 * np.pi * j / sectors
+            cos_p = np.cos(phi)
+            sin_p = np.sin(phi)
+
+            x = (major_r + minor_r * cos_p) * cos_t
+            y = minor_r * sin_p
+            z = (major_r + minor_r * cos_p) * sin_t
+            verts.append([x + c[0], y + c[1], z + c[2]])
+
+    for i in range(rings):
+        for j in range(sectors):
+            v0 = i * sectors + j
+            v1 = i * sectors + (j + 1) % sectors
+            v2 = ((i + 1) % rings) * sectors + j
+            v3 = ((i + 1) % rings) * sectors + (j + 1) % sectors
+
+            faces.append([v0, v2, v1])
+            faces.append([v1, v2, v3])
+
+    return RigidBody(
+        np.array(verts, dtype=np.float64),
+        np.array(faces, dtype=np.int32),
+        name=name,
+        color=color,
+    )
+
+
+def load_builtin(
+    model_name: str,
+    name: Optional[str] = None,
+    color: Optional[list] = None,
+) -> RigidBody:
+    """Load a built-in OBJ model from the models directory.
+
+    Parameters
+    ----------
+    model_name : str
+        Name of the model (e.g., "bunny", "teapot").
+    name : str, optional
+        Override name for the body.
+    color : list[float], optional
+        RGBA colour.
+
+    Returns
+    -------
+    RigidBody
+        Loaded model as a rigid body.
+    """
+    filepath = _MODELS_DIR / f"{model_name}.obj"
+    if not filepath.is_file():
+        raise FileNotFoundError(f"Built-in model not found: {filepath}")
+    return load_obj(str(filepath), name=name or model_name, color=color)
+
+
+def list_builtin_models() -> List[str]:
+    """List available built-in OBJ model names.
+
+    Returns
+    -------
+    list[str]
+        Names of available models (without .obj extension).
+    """
+    if not _MODELS_DIR.is_dir():
+        return []
+    return sorted(
+        p.stem for p in _MODELS_DIR.glob("*.obj") if p.is_file()
     )

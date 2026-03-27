@@ -44,6 +44,25 @@ import numpy as np
 from typing import List, Tuple, Set
 from dataclasses import dataclass
 
+from .spatial import SPATIAL_METHODS
+
+
+def create_spatial_structure(method='aabb', **kwargs):
+    """Create a spatial acceleration structure by name.
+
+    Args:
+        method: One of 'aabb', 'obb', 'octree', 'bvh'.
+        **kwargs: Additional arguments passed to the constructor.
+
+    Returns:
+        SpatialStructure instance.
+    """
+    cls = SPATIAL_METHODS.get(method)
+    if cls is None:
+        raise ValueError(f"Unknown spatial method: {method}. "
+                         f"Available: {list(SPATIAL_METHODS.keys())}")
+    return cls(**kwargs)
+
 
 # ======================================================================
 # Pre-computed mesh data for fast vectorized queries

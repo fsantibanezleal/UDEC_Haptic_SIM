@@ -73,7 +73,11 @@ class RigidBody:
         Axis-aligned bounding box minimum corner.
     aabb_max : np.ndarray
         Axis-aligned bounding box maximum corner.
+    body_type : str
+        Type identifier, always "rigid" for this class.
     """
+
+    body_type = "rigid"
 
     def __init__(
         self,
@@ -235,4 +239,5 @@ class RigidBody:
             "collision_faces": list(self.collision_faces),
             "aabb_min": self.aabb_min.tolist(),
             "aabb_max": self.aabb_max.tolist(),
+            "body_type": self.body_type,
         }
