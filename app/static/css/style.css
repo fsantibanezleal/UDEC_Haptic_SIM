@@ -120,6 +120,36 @@ body {
 #fpsDisplay { color: var(--accent-green); }
 #collisionDisplay { color: var(--accent-red); }
 #forceDisplay { color: var(--accent-orange); }
+#spatialDisplay { color: var(--accent-purple); }
+
+#keyHints {
+    position: absolute;
+    bottom: 36px;
+    left: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
+#keyHints kbd {
+    display: inline-block;
+    padding: 2px 5px;
+    font-size: 11px;
+    font-family: monospace;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin: 0 1px;
+}
+
+#statusBar {
+    position: absolute;
+    bottom: 8px;
+    left: 10px;
+    font-size: 12px;
+    color: var(--accent-green);
+    font-family: monospace;
+}
 
 /* ---- Side Panel ---- */
 
