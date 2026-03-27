@@ -43,3 +43,17 @@
 15. **Goertz, R.C.** (1954). Mechanical Master-Slave Manipulators. *Nucleonics*, 12(11), pp. 44-46.
 
 16. **SensAble Technologies** (2006). *OpenHaptics Toolkit Programmer's Guide*. Version 2.0.
+
+## Position-Based Dynamics
+
+17. **Muller, M., Heidelberger, B., Hennix, M., & Ratcliff, J.** (2007). Position Based Dynamics. *Journal of Visual Communication and Image Representation*, 18(2), 109-118.
+
+18. **Macklin, M., Muller, M., & Chentanez, N.** (2016). XPBD: Position-Based Simulation of Compliant Constrained Dynamics. *Proceedings of the 9th International Conference on Motion in Games (MIG '16)*, pp. 49-54.
+
+## Collision Detection
+
+19. **Ericson, C.** (2004). *Real-Time Collision Detection*. Morgan Kaufmann Publishers. ISBN 1-55860-732-3. [Comprehensive reference covering AABB, OBB, BVH, octrees, SAT, GJK, and point-to-triangle projection.]
+
+20. **Gottschalk, S., Lin, M.C., & Manocha, D.** (1996). OBBTree: A Hierarchical Structure for Rapid Interference Detection. *Proceedings of SIGGRAPH '96*, pp. 171-180.
+
+21. **Teschner, M., Heidelberger, B., Muller, M., Pomeranets, D., & Gross, M.** (2005). Optimized Spatial Hashing for Collision Detection of Deformable Objects. *Proceedings of Vision, Modeling, and Visualization (VMV '05)*, pp. 47-54.

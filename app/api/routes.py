@@ -6,13 +6,19 @@ endpoint for real-time simulation streaming.
 
 Endpoints
 ---------
-GET  /api/health        Health check
-GET  /api/scene         Current scene state
-POST /api/scene/reset   Reset to default scene
-POST /api/scene/load    Load OBJ file
-POST /api/probe         Update probe position
-POST /api/settings      Update simulation parameters
-WS   /ws                Real-time simulation WebSocket
+GET  /api/health          Health check
+GET  /api/scene           Current scene state
+POST /api/step            Simulation step
+POST /api/scene/reset     Reset to default scene
+POST /api/scene/load      Load OBJ file
+POST /api/scene/random    Generate random scene
+GET  /api/models          List available models
+POST /api/scene/load-builtin  Load a built-in model
+POST /api/probe           Update probe position
+POST /api/settings        Update simulation parameters
+POST /api/transform       Transform a body
+POST /api/make-deformable Convert body to deformable
+WS   /ws                  Real-time simulation WebSocket
 """
 import json
 import asyncio
@@ -23,7 +29,9 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from ..simulation.scene import Scene
-from ..simulation.obj_loader import load_obj
+from ..simulation.obj_loader import load_obj, load_builtin, list_builtin_models, create_torus
+from ..simulation.scene_generator import generate_random_scene
+from ..simulation.deformable import DeformableBody
 
 import numpy as np
 import tempfile
@@ -55,6 +63,17 @@ class SettingsUpdate(BaseModel):
     contact_threshold: Optional[float] = None
     show_octree: Optional[bool] = None
     octree_max_depth: Optional[int] = None
+    spatial_method: Optional[str] = None
+    probe_mode: Optional[str] = None
+    spatial_max_depth: Optional[int] = None
+    deformable_stiffness: Optional[float] = None
+    deformable_damping: Optional[float] = None
+    deformable_mass: Optional[float] = None
+    deformable_solver: Optional[str] = None
+    xpbd_iterations: Optional[int] = None
+    show_spatial_viz: Optional[bool] = None
+    push_radius: Optional[float] = None
+    push_strength: Optional[float] = None
 
 
 class TransformRequest(BaseModel):
@@ -71,6 +90,27 @@ class TransformRequest(BaseModel):
     factor: Optional[float] = 1.0
 
 
+class MakeDeformableRequest(BaseModel):
+    """Request to convert a body to deformable."""
+    body_index: int
+    mass: Optional[float] = 1.0
+    stiffness: Optional[float] = 500.0
+    damping: Optional[float] = 5.0
+    solver: Optional[str] = "msd"
+
+
+class LoadBuiltinRequest(BaseModel):
+    """Request to load a built-in model."""
+    model_name: str
+    color: Optional[List[float]] = None
+
+
+class RandomSceneRequest(BaseModel):
+    """Request to generate a random scene."""
+    num_bodies: Optional[int] = 5
+    deformable_fraction: Optional[float] = 0.3
+
+
 # ======================================================================
 # REST endpoints
 # ======================================================================
@@ -83,17 +123,13 @@ async def health():
 
 @router.get("/api/scene")
 async def get_scene():
-    """Return cached scene state without recomputing.
-
-    Use POST /api/step to trigger a full recomputation.
-    This endpoint is fast because it returns pre-computed data.
-    """
+    """Return cached scene state without recomputing."""
     return scene.get_state()
 
 
 @router.post("/api/step")
 async def step_scene():
-    """Run one simulation step (octree + collisions + force) and return state."""
+    """Run one simulation step and return state."""
     return scene.step()
 
 
@@ -101,7 +137,7 @@ async def step_scene():
 async def reset_scene():
     """Reset the scene to the default demo configuration."""
     scene.load_default_scene()
-    scene.step()  # precompute
+    scene.step()
     return {"status": "reset", "bodies": len(scene.bodies)}
 
 
@@ -111,7 +147,6 @@ async def load_model(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".obj"):
         return {"error": "Only .obj files are supported"}
 
-    # Save to temp file, parse, then remove
     tmp_dir = tempfile.mkdtemp()
     tmp_path = os.path.join(tmp_dir, file.filename)
     try:
@@ -128,6 +163,60 @@ async def load_model(file: UploadFile = File(...)):
             os.remove(tmp_path)
         if os.path.exists(tmp_dir):
             os.rmdir(tmp_dir)
+
+
+@router.post("/api/scene/random")
+async def random_scene(req: RandomSceneRequest = RandomSceneRequest()):
+    """Generate a random scene with mixed body types."""
+    scene.clear()
+    bodies = generate_random_scene(
+        num_bodies=req.num_bodies,
+        deformable_fraction=req.deformable_fraction,
+    )
+    for body in bodies:
+        scene.add_body(body)
+    scene.step()
+    return {"status": "random", "bodies": len(scene.bodies)}
+
+
+@router.get("/api/models")
+async def get_models():
+    """List available built-in model names."""
+    builtins = list_builtin_models()
+    primitives = ["box", "sphere", "torus"]
+    return {"primitives": primitives, "builtins": builtins}
+
+
+@router.post("/api/scene/load-builtin")
+async def load_builtin_model(req: LoadBuiltinRequest):
+    """Load a built-in model into the scene."""
+    try:
+        if req.model_name == "torus":
+            body = create_torus(
+                center=np.array([0.0, 0.5, 0.0]),
+                name="torus",
+                color=req.color,
+            )
+        elif req.model_name in ("box", "sphere"):
+            from ..simulation.obj_loader import create_box, create_sphere
+            if req.model_name == "box":
+                body = create_box(
+                    center=np.array([0.0, 0.5, 0.0]),
+                    name="box",
+                    color=req.color,
+                )
+            else:
+                body = create_sphere(
+                    center=np.array([0.0, 0.5, 0.0]),
+                    name="sphere",
+                    color=req.color,
+                )
+        else:
+            body = load_builtin(req.model_name, color=req.color)
+        scene.add_body(body)
+        return {"status": "loaded", "name": body.name, "bodies": len(scene.bodies)}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 class AnchorUpdate(BaseModel):
@@ -170,6 +259,33 @@ async def update_settings(settings: SettingsUpdate):
         scene.show_octree = settings.show_octree
     if settings.octree_max_depth is not None:
         scene.octree_max_depth = settings.octree_max_depth
+    if settings.spatial_method is not None:
+        scene.set_spatial_method(settings.spatial_method)
+    if settings.probe_mode is not None:
+        scene.probe_controller.set_mode(settings.probe_mode, scene)
+    if settings.spatial_max_depth is not None:
+        scene.spatial_max_depth = settings.spatial_max_depth
+    if settings.show_spatial_viz is not None:
+        scene.show_spatial_viz = settings.show_spatial_viz
+    if settings.push_radius is not None:
+        scene.probe_controller.push_radius = settings.push_radius
+    if settings.push_strength is not None:
+        scene.probe_controller.push_strength = settings.push_strength
+
+    # Apply deformable settings to all deformable bodies
+    for body in scene.bodies:
+        if isinstance(body, DeformableBody):
+            if settings.deformable_stiffness is not None:
+                body.stiffness = settings.deformable_stiffness
+            if settings.deformable_damping is not None:
+                body.damping = settings.deformable_damping
+            if settings.deformable_mass is not None:
+                body.masses[:] = settings.deformable_mass
+            if settings.deformable_solver is not None:
+                body.solver = settings.deformable_solver
+            if settings.xpbd_iterations is not None:
+                body.xpbd_iterations = settings.xpbd_iterations
+
     return {"status": "updated"}
 
 
@@ -193,9 +309,23 @@ async def transform_body(req: TransformRequest):
     else:
         return {"error": f"Unknown transform: {req.transform_type}"}
 
-    # Mark bodies as moved so octree+collisions get rebuilt
     scene.mark_bodies_dirty()
     return scene.step()
+
+
+@router.post("/api/make-deformable")
+async def make_deformable(req: MakeDeformableRequest):
+    """Convert a rigid body to deformable."""
+    success = scene.make_body_deformable(
+        req.body_index,
+        mass=req.mass,
+        stiffness=req.stiffness,
+        damping=req.damping,
+        solver=req.solver,
+    )
+    if success:
+        return scene.step()
+    return {"error": "Could not convert body (invalid index or already deformable)"}
 
 
 # ======================================================================
@@ -209,14 +339,6 @@ async def websocket_endpoint(websocket: WebSocket):
     The client sends JSON messages with probe position updates.
     The server responds with the full scene state including
     collision data and force vectors.
-
-    Client message format::
-
-        {"type": "probe", "x": 0.5, "y": 0.3, "z": 1.0}
-        {"type": "settings", "stiffness": 0.3}
-        {"type": "step"}
-
-    Server response: full scene state dict.
     """
     await websocket.accept()
     try:
@@ -239,6 +361,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     scene.force_model.max_force = msg["max_force"]
                 if "show_octree" in msg:
                     scene.show_octree = msg["show_octree"]
+                if "spatial_method" in msg:
+                    scene.set_spatial_method(msg["spatial_method"])
+                if "probe_mode" in msg:
+                    scene.probe_controller.set_mode(msg["probe_mode"], scene)
+                if "show_spatial_viz" in msg:
+                    scene.show_spatial_viz = msg["show_spatial_viz"]
 
             elif msg_type == "transform":
                 idx = msg.get("body_index", 0)
@@ -261,6 +389,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif msg_type == "reset":
                 scene.load_default_scene()
+
+            elif msg_type == "random":
+                scene.clear()
+                bodies = generate_random_scene(
+                    num_bodies=msg.get("num_bodies", 5),
+                    deformable_fraction=msg.get("deformable_fraction", 0.3),
+                )
+                for body in bodies:
+                    scene.add_body(body)
 
             # Step and send state
             state = scene.step()
