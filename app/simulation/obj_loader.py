@@ -53,20 +53,24 @@ from .rigid_body import RigidBody
 _MODELS_DIR = Path(__file__).parent.parent / "static" / "models"
 
 
-def parse_face_index(token: str) -> int:
-    """Parse one face vertex token and return the 0-based vertex index.
+def parse_face_index(token: str) -> Tuple[int, int, int]:
+    """Parse one face vertex token and return 0-based indices.
 
     Handles formats:
-        ``v``
-        ``v/vt``
-        ``v/vt/vn``
-        ``v//vn``
+        ``v``            -> (v, -1, -1)
+        ``v/vt``         -> (v, vt, -1)
+        ``v/vt/vn``      -> (v, vt, vn)
+        ``v//vn``        -> (v, -1, vn)
 
     OBJ indices are 1-based; this function converts to 0-based.
+    Returns -1 for absent texture or normal indices.
     Negative indices (relative to end of list) are NOT supported.
     """
     parts = token.split("/")
-    return int(parts[0]) - 1
+    vi = int(parts[0]) - 1
+    ti = int(parts[1]) - 1 if len(parts) > 1 and parts[1] != "" else -1
+    ni = int(parts[2]) - 1 if len(parts) > 2 and parts[2] != "" else -1
+    return vi, ti, ni
 
 
 def load_obj(filepath: str, name: Optional[str] = None,
@@ -98,7 +102,11 @@ def load_obj(filepath: str, name: Optional[str] = None,
         raise FileNotFoundError(f"OBJ file not found: {filepath}")
 
     vertices = []
+    tex_coords = []
+    file_normals = []
     faces = []
+    face_tex_indices = []
+    face_normal_indices = []
 
     with open(filepath, "r", encoding="utf-8", errors="replace") as fh:
         for raw_line in fh:
@@ -112,11 +120,22 @@ def load_obj(filepath: str, name: Optional[str] = None,
             if keyword == "v" and len(parts) >= 4:
                 vertices.append([float(parts[1]), float(parts[2]), float(parts[3])])
 
+            elif keyword == "vt" and len(parts) >= 3:
+                tex_coords.append([float(parts[1]), float(parts[2])])
+
+            elif keyword == "vn" and len(parts) >= 4:
+                file_normals.append([float(parts[1]), float(parts[2]), float(parts[3])])
+
             elif keyword == "f" and len(parts) >= 4:
-                indices = [parse_face_index(p) for p in parts[1:]]
+                parsed = [parse_face_index(p) for p in parts[1:]]
+                v_indices = [p[0] for p in parsed]
+                t_indices = [p[1] for p in parsed]
+                n_indices = [p[2] for p in parsed]
                 # Fan triangulation for polygons with > 3 vertices
-                for i in range(1, len(indices) - 1):
-                    faces.append([indices[0], indices[i], indices[i + 1]])
+                for i in range(1, len(v_indices) - 1):
+                    faces.append([v_indices[0], v_indices[i], v_indices[i + 1]])
+                    face_tex_indices.append([t_indices[0], t_indices[i], t_indices[i + 1]])
+                    face_normal_indices.append([n_indices[0], n_indices[i], n_indices[i + 1]])
 
     if not vertices:
         raise ValueError(f"No vertices found in {filepath}")
@@ -126,12 +145,23 @@ def load_obj(filepath: str, name: Optional[str] = None,
     if name is None:
         name = os.path.splitext(os.path.basename(filepath))[0]
 
-    return RigidBody(
+    body = RigidBody(
         vertices=np.array(vertices, dtype=np.float64),
         faces=np.array(faces, dtype=np.int32),
         name=name,
         color=color,
     )
+
+    # Attach texture coordinates if present
+    if tex_coords:
+        body.tex_coords = np.array(tex_coords, dtype=np.float64)
+        body.has_texture = True
+
+    # Attach file normals if present (per-vertex normals from OBJ)
+    if file_normals:
+        body.file_normals = np.array(file_normals, dtype=np.float64)
+
+    return body
 
 
 # ======================================================================

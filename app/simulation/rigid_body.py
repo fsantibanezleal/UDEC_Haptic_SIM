@@ -109,6 +109,10 @@ class RigidBody:
 
         self.collision_faces: set = set()
 
+        # Optional texture coordinates (from OBJ vt lines)
+        self.tex_coords: Optional[np.ndarray] = None  # (N, 2) UV coordinates
+        self.has_texture = False
+
         self._compute_normals()
         self._compute_aabb()
 
@@ -229,7 +233,7 @@ class RigidBody:
 
     def get_state(self) -> dict:
         """Serialise for WebSocket / Three.js consumption."""
-        return {
+        state = {
             "name": self.name,
             "vertices": self.vertices.tolist(),
             "faces": self.faces.tolist(),
@@ -241,3 +245,7 @@ class RigidBody:
             "aabb_max": self.aabb_max.tolist(),
             "body_type": self.body_type,
         }
+        if self.tex_coords is not None:
+            state['tex_coords'] = self.tex_coords.tolist()
+            state['has_texture'] = True
+        return state
