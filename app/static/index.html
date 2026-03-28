@@ -85,6 +85,7 @@
                         <option value="free">Free</option>
                         <option value="grab">Grab</option>
                         <option value="push">Push</option>
+                        <option value="cut">Cut</option>
                     </select>
                 </div>
                 <div class="slider-row"><label>X</label><input type="range" id="probeX" min="-3" max="3" step="0.05" value="0"><span id="pxv">0.00</span></div>
@@ -338,6 +339,8 @@
             probeMesh.material.color.set(0xff4444);probeMesh.material.emissive.set(0x440000);
         }else if(state.probe_mode==='push'){
             probeMesh.material.color.set(0x44ff44);probeMesh.material.emissive.set(0x004400);
+        }else if(state.probe_mode==='cut'){
+            probeMesh.material.color.set(0xff44ff);probeMesh.material.emissive.set(0x440044);
         }else{
             probeMesh.material.color.set(0xffd700);probeMesh.material.emissive.set(0x664400);
         }
@@ -539,6 +542,35 @@
             const newMode=modeSelect.value==='push'?'free':'push';
             modeSelect.value=newMode;
             post('/api/settings',{probe_mode:newMode}).then(()=>doStep());
+        }
+        // C key: toggle cut mode
+        if(e.code==='KeyC'&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='SELECT'){
+            const modeSelect=$('probeMode');
+            const newMode=modeSelect.value==='cut'?'free':'cut';
+            modeSelect.value=newMode;
+            post('/api/settings',{probe_mode:newMode}).then(()=>doStep());
+        }
+        // X key: start/end cut (in cut mode, first press records start, second press records end and executes)
+        if(e.code==='KeyX'&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='SELECT'){
+            if($('probeMode').value==='cut'){
+                if(!window._cutStart){
+                    window._cutStart=[probe.x,probe.y,probe.z];
+                    log('Cut start recorded at ['+probe.x.toFixed(2)+','+probe.y.toFixed(2)+','+probe.z.toFixed(2)+']');
+                }else{
+                    const s=window._cutStart,ep=[probe.x,probe.y,probe.z];
+                    const dx=ep[0]-s[0],dy=ep[1]-s[1],dz=ep[2]-s[2];
+                    const len=Math.sqrt(dx*dx+dy*dy+dz*dz);
+                    if(len>0.01){
+                        const nx=-dz/len,ny=0,nz=dx/len;
+                        const mx=(s[0]+ep[0])/2,my=(s[1]+ep[1])/2,mz=(s[2]+ep[2])/2;
+                        post('/api/cut',{body_index:0,point:[mx,my,mz],normal:[nx,ny,nz]}).then(r=>{
+                            if(r&&r.cut_result)log('Cut: '+r.cut_result.new_vertices+' new verts');
+                            doStep();
+                        });
+                    }
+                    window._cutStart=null;
+                }
+            }
         }
     });
     window.addEventListener('keyup',e=>{keys[e.code]=false;});
