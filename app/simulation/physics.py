@@ -78,10 +78,12 @@ class SpringForceModel:
         stiffness: float = 0.2,
         damping: float = 0.05,
         max_force: float = 3.3,
+        friction_coefficient: float = 0.0,
     ):
         self.stiffness = stiffness
         self.damping = damping
         self.max_force = max_force
+        self.friction_coefficient = friction_coefficient
         self.anchor: Optional[np.ndarray] = None
         self.is_contacting = False
 
@@ -100,12 +102,15 @@ class SpringForceModel:
         probe_position: np.ndarray,
         probe_velocity: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        """Compute the haptic feedback force.
+        """Compute the haptic feedback force with optional Coulomb friction.
 
         ::
 
-            F = -k * (probe - anchor) - b * v
+            F_total = F_spring + F_damping + F_friction
 
+        where F_friction = -mu * |F_normal| * tangent_velocity_hat
+
+        Friction opposes tangential motion at the contact surface.
         The result is clamped so that ``|F| <= max_force``.
 
         Parameters
@@ -124,11 +129,32 @@ class SpringForceModel:
             return np.zeros(3)
 
         displacement = probe_position - self.anchor
-        force = -self.stiffness * displacement
 
+        # Normal force (along displacement direction)
+        f_normal = -self.stiffness * displacement
+
+        # Damping
+        f_damp = np.zeros(3)
         if probe_velocity is not None:
-            force -= self.damping * probe_velocity
+            f_damp = -self.damping * probe_velocity
 
+        force = f_normal + f_damp
+
+        # Coulomb friction (if enabled and we have velocity)
+        if self.friction_coefficient > 0 and probe_velocity is not None:
+            normal_dir = displacement / (np.linalg.norm(displacement) + 1e-10)
+            normal_mag = abs(np.dot(force, normal_dir))
+
+            # Tangential velocity (component perpendicular to normal)
+            v_normal = np.dot(probe_velocity, normal_dir) * normal_dir
+            v_tangent = probe_velocity - v_normal
+            v_tang_mag = np.linalg.norm(v_tangent)
+
+            if v_tang_mag > 1e-6:
+                f_friction = -self.friction_coefficient * normal_mag * v_tangent / v_tang_mag
+                force += f_friction
+
+        # Clamp
         magnitude = np.linalg.norm(force)
         if magnitude > self.max_force:
             force = force / magnitude * self.max_force
@@ -143,6 +169,7 @@ class SpringForceModel:
             "stiffness": self.stiffness,
             "damping": self.damping,
             "max_force": self.max_force,
+            "friction_coefficient": self.friction_coefficient,
         }
 
 

@@ -154,6 +154,54 @@ def test_bvh_nearest():
     print(f"  [PASS] BVH nearest (dist_bvh={dist_bvh:.3f}, dist_aabb={dist_aabb:.3f})")
 
 
+def test_bvh_refit():
+    """BVH refit should update AABBs to match a full rebuild."""
+    bodies = _make_overlapping()
+
+    # Build BVH
+    bvh = BVH(max_leaf_size=4)
+    bvh.build(bodies)
+    depth_before = bvh.get_depth()
+
+    # Move body B slightly (modify vertices in place)
+    offset = np.array([0.3, 0.1, 0.0])
+    bodies[1].vertices = bodies[1].vertices + offset
+
+    # Refit (O(n)) instead of rebuild (O(n log n))
+    bvh.refit(bodies)
+
+    # Verify tree depth is unchanged (structure preserved)
+    assert bvh.get_depth() == depth_before, "Refit should not change tree depth"
+
+    # Verify root AABB covers all triangles
+    for body in bodies:
+        for v in body.vertices:
+            assert np.all(v >= bvh.root.aabb_min - 1e-6), \
+                f"Vertex {v} below root AABB min {bvh.root.aabb_min}"
+            assert np.all(v <= bvh.root.aabb_max + 1e-6), \
+                f"Vertex {v} above root AABB max {bvh.root.aabb_max}"
+
+    # Compare with full rebuild result
+    bvh_rebuild = BVH(max_leaf_size=4)
+    bvh_rebuild.build(bodies)
+    pt_refit, dist_refit = bvh.query_nearest(np.array([0.0, 0.0, 2.0]), top_k=5)
+    pt_rebuild, dist_rebuild = bvh_rebuild.query_nearest(np.array([0.0, 0.0, 2.0]), top_k=5)
+    assert abs(dist_refit - dist_rebuild) < 0.05, \
+        f"Refit nearest dist {dist_refit} differs from rebuild {dist_rebuild}"
+
+    print(f"  [PASS] BVH refit (depth={depth_before}, nearest_dist_refit={dist_refit:.3f})")
+
+
+def test_bvh_refit_empty():
+    """BVH refit on empty tree should trigger a full build."""
+    bvh = BVH()
+    bodies = [create_box(np.array([0, 0, 0.0]), size=1.0)]
+    bvh.refit(bodies)  # Should build from scratch
+    assert bvh.root is not None, "Refit on empty tree should build"
+    assert bvh.get_depth() > 0
+    print("  [PASS] BVH refit from empty")
+
+
 # ---- Cross-method consistency ----
 
 def test_all_methods_consistent():
@@ -196,5 +244,7 @@ if __name__ == "__main__":
     test_obb_tree_collisions()
     test_bvh_build()
     test_bvh_nearest()
+    test_bvh_refit()
+    test_bvh_refit_empty()
     test_all_methods_consistent()
     print("=== All spatial tests passed ===")
