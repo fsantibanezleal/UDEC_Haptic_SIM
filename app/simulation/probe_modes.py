@@ -24,11 +24,16 @@ class ProbeController:
         self.push_radius: float = 0.3
         self.push_strength: float = 0.5
 
+        # Cut mode state
+        self.cut_start: Optional[np.ndarray] = None
+        self.cut_end: Optional[np.ndarray] = None
+        self.cut_recording: bool = False
+
     def set_mode(self, mode: str, scene) -> None:
         """Set the probe interaction mode.
 
         Args:
-            mode: One of "free", "grab", "push".
+            mode: One of "free", "grab", "push", "cut".
             scene: The Scene instance (for releasing grabs, etc.)
         """
         if mode == self.mode:
@@ -38,6 +43,12 @@ class ProbeController:
         if self.mode == "grab":
             self.grabbed_body_index = None
             self.grab_offset = None
+
+        # Reset cut state when leaving cut mode
+        if self.mode == "cut":
+            self.cut_start = None
+            self.cut_end = None
+            self.cut_recording = False
 
         self.mode = mode
 
@@ -65,6 +76,64 @@ class ProbeController:
             self.grabbed_body_index = best_idx
             self.grab_offset = scene.bodies[best_idx].position - probe_pos
 
+    def start_cut(self, probe_pos: np.ndarray) -> None:
+        """Begin recording a cut line from the current probe position.
+
+        Args:
+            probe_pos: Current probe position (start of cut).
+        """
+        self.cut_start = np.array(probe_pos, dtype=np.float64)
+        self.cut_end = None
+        self.cut_recording = True
+
+    def end_cut(self, probe_pos: np.ndarray, scene) -> int:
+        """End the cut recording and execute the cut.
+
+        Defines a cutting plane from start/end points using the
+        line direction crossed with the Y-axis as the plane normal.
+
+        Args:
+            probe_pos: Current probe position (end of cut).
+            scene: The Scene instance.
+
+        Returns:
+            Total number of new vertices created across all cut bodies,
+            or 0 if no cut was performed.
+        """
+        if self.cut_start is None:
+            return 0
+
+        self.cut_end = np.array(probe_pos, dtype=np.float64)
+        self.cut_recording = False
+
+        # Define cutting plane from the two points
+        cut_dir = self.cut_end - self.cut_start
+        cut_length = np.linalg.norm(cut_dir)
+        if cut_length < 1e-6:
+            return 0
+
+        cut_dir /= cut_length
+
+        # Plane normal is perpendicular to cut direction and Y-up
+        up = np.array([0.0, 1.0, 0.0])
+        plane_normal = np.cross(cut_dir, up)
+        if np.linalg.norm(plane_normal) < 1e-6:
+            # Cut is vertical; use X-axis instead
+            plane_normal = np.cross(cut_dir, np.array([1.0, 0.0, 0.0]))
+        plane_normal /= (np.linalg.norm(plane_normal) + 1e-10)
+
+        plane_point = (self.cut_start + self.cut_end) / 2.0
+
+        total_created = 0
+        from .deformable import DeformableBody
+        for i, body in enumerate(scene.bodies):
+            if isinstance(body, DeformableBody):
+                n = scene.cut_body(i, plane_point, plane_normal)
+                if n > 0:
+                    total_created += n
+
+        return total_created
+
     def update(self, probe_pos: np.ndarray, scene) -> None:
         """Update probe interaction for the current frame.
 
@@ -76,7 +145,7 @@ class ProbeController:
             self._update_grab(probe_pos, scene)
         elif self.mode == "push":
             self._update_push(probe_pos, scene)
-        # "free" mode does nothing
+        # "free" and "cut" modes do nothing in update
 
     def _update_grab(self, probe_pos: np.ndarray, scene) -> None:
         """Move the grabbed body to follow the probe.
@@ -140,4 +209,6 @@ class ProbeController:
             "grabbed_body_index": self.grabbed_body_index,
             "push_radius": self.push_radius,
             "push_strength": self.push_strength,
+            "cut_recording": self.cut_recording,
+            "cut_start": self.cut_start.tolist() if self.cut_start is not None else None,
         }

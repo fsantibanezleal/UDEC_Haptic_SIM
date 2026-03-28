@@ -10,6 +10,10 @@ The system provides real-time WebSocket communication between a Python physics b
 
 ![Architecture](docs/svg/architecture.svg)
 
+## Frontend
+
+![Frontend](docs/png/frontend.png)
+
 ## Quick Start
 
 ```bash

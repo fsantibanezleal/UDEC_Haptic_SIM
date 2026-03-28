@@ -20,6 +20,7 @@ from .physics import SpringForceModel
 from .obj_loader import load_obj, create_torus, load_builtin, list_builtin_models
 from .scene import Scene
 from .probe_modes import ProbeController
+from .mesh_cutter import cut_mesh_with_plane, cut_deformable_body
 from .scene_generator import generate_random_scene
 from .transform import (
     rodrigues_rotation,
@@ -49,6 +50,8 @@ __all__ = [
     "list_builtin_models",
     "Scene",
     "ProbeController",
+    "cut_mesh_with_plane",
+    "cut_deformable_body",
     "generate_random_scene",
     "rodrigues_rotation",
     "rotation_matrix_x",

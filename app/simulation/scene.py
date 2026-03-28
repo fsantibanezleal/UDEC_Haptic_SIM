@@ -34,6 +34,7 @@ from .physics import SpringForceModel
 from .obj_loader import create_box, create_sphere
 from .scene_generator import generate_demo_scene
 from .probe_modes import ProbeController
+from .mesh_cutter import cut_deformable_body
 
 
 class Scene:
@@ -168,6 +169,34 @@ class Scene:
         self.bodies[index] = deformable
         self._bodies_dirty = True
         return True
+
+    # ------------------------------------------------------------------
+    # Mesh cutting
+    # ------------------------------------------------------------------
+
+    def cut_body(self, body_index: int, plane_point: np.ndarray,
+                 plane_normal: np.ndarray) -> int:
+        """Cut a deformable body along a plane.
+
+        Args:
+            body_index: Index of the body to cut.
+            plane_point: A point on the cutting plane (3,).
+            plane_normal: Normal of the cutting plane (3,).
+
+        Returns:
+            Number of new vertices created, or -1 on error.
+        """
+        if body_index < 0 or body_index >= len(self.bodies):
+            return -1
+
+        body = self.bodies[body_index]
+        if not isinstance(body, DeformableBody):
+            return -1
+
+        n_created = cut_deformable_body(body, plane_point, plane_normal)
+        if n_created > 0:
+            self._bodies_dirty = True
+        return n_created
 
     # ------------------------------------------------------------------
     # Simulation step
