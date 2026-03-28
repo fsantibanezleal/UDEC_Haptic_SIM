@@ -32,6 +32,7 @@ from .collision import (
 from .spatial import SPATIAL_METHODS
 from .physics import SpringForceModel
 from .obj_loader import create_box, create_sphere
+from .scene_generator import generate_demo_scene
 from .probe_modes import ProbeController
 
 
@@ -125,6 +126,18 @@ class Scene:
         self.add_body(create_sphere(
             center=np.array([0.0, 1.5, 0.0]), radius=0.5,
             rings=10, sectors=14, name="Sphere", color=[0.4, 0.8, 0.4, 1.0]))
+        self._bodies_dirty = True
+
+    def load_demo_scene(self, demo_name: str) -> None:
+        """Load a preset demo scene, replacing current bodies.
+
+        Args:
+            demo_name: One of 'falling_objects', 'deformable_floor',
+                       'rigid_collisions', 'deformable_collisions', 'mixed'.
+        """
+        self.clear()
+        for body in generate_demo_scene(demo_name):
+            self.add_body(body)
         self._bodies_dirty = True
 
     def make_body_deformable(self, index: int, mass: float = 1.0,

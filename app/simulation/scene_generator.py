@@ -88,3 +88,101 @@ def generate_random_scene(
         bodies.append(body)
 
     return bodies
+
+
+def generate_demo_scene(demo_name: str) -> List[Union[RigidBody, DeformableBody]]:
+    """Generate a preset demo scene.
+
+    Args:
+        demo_name: One of:
+            'falling_objects' -- large rigid floor + small objects falling
+            'deformable_floor' -- large deformable cube + objects falling
+            'rigid_collisions' -- rigid objects colliding
+            'deformable_collisions' -- deformable objects colliding and deforming
+            'mixed' -- rigid floor, deformable blob, rigid projectiles
+    """
+    bodies: List[Union[RigidBody, DeformableBody]] = []
+
+    if demo_name == 'falling_objects':
+        # Large flat rigid floor (create a big box and flatten Y vertices)
+        floor = create_box(center=np.array([0.0, -2.0, 0.0]), size=4.0,
+                           name="Floor", color=[0.4, 0.4, 0.5, 1.0])
+        # Flatten: compress Y coordinates toward center
+        cy = floor.position[1]
+        floor.vertices[:, 1] = cy + (floor.vertices[:, 1] - cy) * 0.1
+        floor.aabb_min = np.min(floor.vertices, axis=0)
+        floor.aabb_max = np.max(floor.vertices, axis=0)
+        bodies.append(floor)
+
+        # Small falling objects at various heights
+        for i in range(5):
+            x = np.random.uniform(-1.5, 1.5)
+            y = 1.0 + i * 0.8
+            z = np.random.uniform(-1.5, 1.5)
+            if i % 2 == 0:
+                obj = create_sphere(center=np.array([x, y, z]), radius=0.25,
+                                    rings=6, sectors=8, name=f"Ball_{i}",
+                                    color=[0.8, 0.3, 0.2, 1.0])
+            else:
+                obj = create_box(center=np.array([x, y, z]), size=0.4,
+                                 name=f"Box_{i}", color=[0.2, 0.5, 0.8, 1.0])
+            bodies.append(obj)
+
+    elif demo_name == 'deformable_floor':
+        # Large deformable cube as floor
+        floor = create_box(center=np.array([0.0, -1.5, 0.0]), size=3.0,
+                           name="Soft Floor", color=[0.3, 0.7, 0.4, 1.0])
+        floor_def = DeformableBody.from_rigid_body(floor, mass=2.0,
+                                                   stiffness=300, damping=10,
+                                                   solver='msd')
+        bodies.append(floor_def)
+
+        # Rigid objects falling
+        for i in range(3):
+            obj = create_sphere(center=np.array([i * 0.8 - 0.8, 2.0 + i * 0.5, 0.0]),
+                                radius=0.3, rings=6, sectors=8,
+                                name=f"Rigid_{i}", color=[0.8, 0.6, 0.2, 1.0])
+            bodies.append(obj)
+
+    elif demo_name == 'rigid_collisions':
+        # Rigid objects approaching each other
+        for i in range(4):
+            x = (i - 1.5) * 1.2
+            obj = create_box(center=np.array([x, 0.0, 0.0]), size=0.6,
+                             name=f"Cube_{i}",
+                             color=[0.2 + i * 0.2, 0.5, 0.8 - i * 0.15, 1.0])
+            bodies.append(obj)
+
+    elif demo_name == 'deformable_collisions':
+        # Deformable objects
+        for i in range(3):
+            sph = create_sphere(center=np.array([i * 1.0 - 1.0, 0.0, 0.0]),
+                                radius=0.4, rings=8, sectors=10,
+                                name=f"Soft_{i}",
+                                color=[0.7, 0.3 + i * 0.2, 0.5, 1.0])
+            soft = DeformableBody.from_rigid_body(sph, mass=0.5,
+                                                  stiffness=200, damping=3,
+                                                  solver='xpbd')
+            bodies.append(soft)
+
+    elif demo_name == 'mixed':
+        # Rigid floor
+        floor = create_box(center=np.array([0.0, -2.0, 0.0]), size=4.0,
+                           name="Floor", color=[0.5, 0.5, 0.5, 1.0])
+        bodies.append(floor)
+        # Deformable blob
+        blob = create_sphere(center=np.array([0.0, 0.0, 0.0]), radius=0.6,
+                             rings=8, sectors=10, name="Blob",
+                             color=[0.2, 0.8, 0.3, 1.0])
+        soft_blob = DeformableBody.from_rigid_body(blob, mass=1.0,
+                                                   stiffness=150, damping=5,
+                                                   solver='msd')
+        bodies.append(soft_blob)
+        # Rigid projectiles
+        for i in range(3):
+            proj = create_box(center=np.array([i * 0.7 - 0.7, 2.0 + i * 0.4, 0.5]),
+                              size=0.3, name=f"Proj_{i}",
+                              color=[0.9, 0.2, 0.1, 1.0])
+            bodies.append(proj)
+
+    return bodies
