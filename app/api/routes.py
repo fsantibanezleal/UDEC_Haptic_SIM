@@ -219,6 +219,18 @@ async def load_builtin_model(req: LoadBuiltinRequest):
         return {"error": str(e)}
 
 
+class DemoSceneRequest(BaseModel):
+    """Request to load a demo scene."""
+    name: str = "falling_objects"
+
+
+@router.post("/api/scene/demo")
+async def load_demo(req: DemoSceneRequest = DemoSceneRequest()):
+    """Load a preset demo scene."""
+    scene.load_demo_scene(req.name)
+    return scene.step()
+
+
 class AnchorUpdate(BaseModel):
     """Surface contact point reported by the frontend raycaster."""
     x: float
