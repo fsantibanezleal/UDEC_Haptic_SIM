@@ -38,6 +38,17 @@
                 <button class="btn" id="demoBtn" style="background:#d29922;color:#000;font-weight:600">&#9654; Auto Demo</button>
                 <button class="btn" id="randomBtn" style="background:#bc8cff;color:#000;font-weight:600">Random Scene</button>
                 <div class="slider-row" style="margin-top:6px">
+                    <label>Demo</label>
+                    <select id="demoSceneSelect">
+                        <option value="falling_objects">Falling Objects</option>
+                        <option value="deformable_floor">Deformable Floor</option>
+                        <option value="rigid_collisions">Rigid Collisions</option>
+                        <option value="deformable_collisions">Deformable Collisions</option>
+                        <option value="mixed">Mixed</option>
+                    </select>
+                    <button class="btn-sm" id="loadDemoBtn">Load</button>
+                </div>
+                <div class="slider-row" style="margin-top:6px">
                     <label>Model</label>
                     <select id="modelSelect">
                         <option value="box">Box</option>
@@ -107,7 +118,7 @@
 
             <!-- Display -->
             <div class="panel-section"><h3>Display</h3>
-                <label class="toggle"><input type="checkbox" id="showAABB"><span>Show AABB</span></label>
+                <label class="toggle"><input type="checkbox" id="showAABB"><span>Show Bounding Volumes</span></label>
                 <label class="toggle"><input type="checkbox" id="showNormals"><span>Show Normals</span></label>
                 <label class="toggle"><input type="checkbox" id="showForce" checked><span>Show Force Arrow</span></label>
                 <label class="toggle"><input type="checkbox" id="showWireframe" checked><span>Show Wireframe</span></label>
@@ -447,7 +458,11 @@
     });
 
     // ===== TOGGLES =====
-    $('showAABB').addEventListener('change',function(){aabbGroup.visible=this.checked;});
+    $('showAABB').addEventListener('change',function(){
+        aabbGroup.visible=this.checked;
+        // Also enable spatial viz from backend for active structure
+        post('/api/settings',{show_spatial_viz:this.checked}).then(()=>doStep());
+    });
     $('showNormals').addEventListener('change',function(){normalsGroup.visible=this.checked;});
     $('showForce').addEventListener('change',function(){showForceFlag=this.checked;});
     $('showWireframe').addEventListener('change',function(){for(const w of wireMeshes)w.visible=this.checked;});
@@ -490,6 +505,13 @@
     $('randomBtn').addEventListener('click',async()=>{
         await post('/api/scene/random',{num_bodies:5,deformable_fraction:0.3});
         await doStep();log('Random scene generated');
+    });
+
+    // Load Demo Scene
+    $('loadDemoBtn').addEventListener('click',async()=>{
+        const demoName=$('demoSceneSelect').value;
+        await post('/api/scene/demo',{name:demoName});
+        await doStep();log('Loaded demo: '+demoName);
     });
 
     // Add Model
