@@ -185,6 +185,8 @@ class Renderer3D {
             const baseColor = new THREE.Color(color[0], color[1], color[2]);
             const collisionColor = new THREE.Color(1.0, 0.2, 0.15);
 
+            const hasTexture = body.has_texture && body.tex_coords;
+
             for (let fi = 0; fi < faces.length; fi++) {
                 const [i0, i1, i2] = faces[fi];
                 const v0 = verts[i0];
@@ -195,9 +197,33 @@ class Renderer3D {
                 positions.push(v1[0], v1[1], v1[2]);
                 positions.push(v2[0], v2[1], v2[2]);
 
-                const c = collisionFaces.has(fi) ? collisionColor : baseColor;
+                let faceColor;
+                if (collisionFaces.has(fi)) {
+                    faceColor = collisionColor;
+                } else if (hasTexture) {
+                    // Generate checkerboard from UV coords as visual
+                    // feedback that UV mapping is working
+                    const tc = body.tex_coords;
+                    const u0 = (i0 < tc.length) ? tc[i0][0] : 0;
+                    const u1 = (i1 < tc.length) ? tc[i1][0] : 0;
+                    const u2 = (i2 < tc.length) ? tc[i2][0] : 0;
+                    const v0u = (i0 < tc.length) ? tc[i0][1] : 0;
+                    const v1u = (i1 < tc.length) ? tc[i1][1] : 0;
+                    const v2u = (i2 < tc.length) ? tc[i2][1] : 0;
+                    const u = (u0 + u1 + u2) / 3;
+                    const v = (v0u + v1u + v2u) / 3;
+                    const checker = (Math.floor(u * 8) + Math.floor(v * 8)) % 2;
+                    const shade = checker ? 0.9 : 0.5;
+                    faceColor = new THREE.Color(
+                        baseColor.r * shade,
+                        baseColor.g * shade,
+                        baseColor.b * shade
+                    );
+                } else {
+                    faceColor = baseColor;
+                }
                 for (let k = 0; k < 3; k++) {
-                    colors.push(c.r, c.g, c.b);
+                    colors.push(faceColor.r, faceColor.g, faceColor.b);
                 }
             }
 
