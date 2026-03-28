@@ -105,6 +105,13 @@ class LoadBuiltinRequest(BaseModel):
     color: Optional[List[float]] = None
 
 
+class CutRequest(BaseModel):
+    """Request to cut a deformable body with a plane."""
+    body_index: int
+    point: List[float]  # [x, y, z] point on the cutting plane
+    normal: List[float]  # [nx, ny, nz] plane normal
+
+
 class RandomSceneRequest(BaseModel):
     """Request to generate a random scene."""
     num_bodies: Optional[int] = 5
@@ -338,6 +345,23 @@ async def make_deformable(req: MakeDeformableRequest):
     if success:
         return scene.step()
     return {"error": "Could not convert body (invalid index or already deformable)"}
+
+
+@router.post("/api/cut")
+async def cut_body(req: CutRequest):
+    """Cut a deformable body along a plane.
+
+    The body must be deformable. The cut plane is defined by a point
+    and normal vector. Returns the updated scene state.
+    """
+    point = np.array(req.point, dtype=np.float64)
+    normal = np.array(req.normal, dtype=np.float64)
+    n_created = scene.cut_body(req.body_index, point, normal)
+    if n_created < 0:
+        return {"error": "Invalid body index or body is not deformable"}
+    state = scene.step()
+    state["cut_result"] = {"new_vertices": n_created}
+    return state
 
 
 # ======================================================================
