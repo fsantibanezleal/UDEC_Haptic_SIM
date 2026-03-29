@@ -10,6 +10,20 @@ The system provides real-time WebSocket communication between a Python physics b
 
 Haptic simulation enables users to feel virtual objects through force feedback. The core challenge is real-time collision detection between 3D meshes and computing contact forces within strict latency requirements (~1kHz for stable haptics, ~300Hz for visual rendering).
 
+![Collision Pipeline](docs/svg/collision_pipeline.svg)
+
+---
+
+## KPIs & Metrics
+
+| Metric | Target | Current |
+|--------|--------|---------|
+| Collision detection | <5ms for 276 triangles | <1ms (vectorized AABB batch) |
+| Spatial structures | 4 methods selectable | AABB, OBB, Octree, BVH |
+| Deformable solvers | MSD + XPBD | Semi-implicit Euler, 5-iter XPBD |
+| Force feedback | Spring-damper + friction | Kelvin-Voigt + Coulomb |
+| Test coverage | Comprehensive | 50+ tests passing |
+
 ---
 
 ## Physics Model
