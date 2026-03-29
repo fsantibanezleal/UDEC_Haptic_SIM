@@ -142,36 +142,60 @@ UDEC_Haptic_SIM/
 │   ├── simulation/
 │   │   ├── __init__.py
 │   │   ├── scene.py                     # Top-level scene manager (bodies, probe, octree)
+│   │   ├── scene_generator.py           # Parametric demo scene builder
 │   │   ├── rigid_body.py                # Rigid body with mesh (vertices, faces, normals)
+│   │   ├── deformable.py               # Deformable body with FEM-style vertex dynamics
 │   │   ├── collision.py                 # Octree + SAT collision detection engine
 │   │   ├── physics.py                   # Spring-damper force model + surface projection
 │   │   ├── obj_loader.py                # Wavefront OBJ parser + primitive generators
-│   │   └── transform.py                 # 3D transformations (Rodrigues, quaternions)
+│   │   ├── transform.py                 # 3D transformations (Rodrigues, quaternions)
+│   │   ├── mesh_cutter.py              # Real-time mesh cutting / slicing
+│   │   ├── probe_modes.py              # Probe interaction modes (touch, cut, grab)
+│   │   └── spatial/                     # Spatial acceleration structures
+│   │       ├── __init__.py
+│   │       ├── base.py                  # Abstract spatial index interface
+│   │       ├── aabb_tree.py             # AABB tree broad-phase acceleration
+│   │       ├── obb.py                   # Oriented bounding box utilities
+│   │       ├── octree.py                # Octree spatial partitioning
+│   │       └── bvh.py                   # Bounding volume hierarchy
 │   └── static/
 │       ├── index.html                   # Main frontend page
+│       ├── test3d.html                  # Three.js rendering test page
 │       ├── css/
 │       │   └── style.css                # Application styles
-│       └── js/
-│           ├── app.js                   # Frontend application logic
-│           ├── controls.js              # Probe controller + UI parameter controls
-│           ├── renderer3d.js            # Three.js 3D renderer, force visualizer, octree overlay
-│           └── websocket.js             # WebSocket client with auto-reconnect
+│       ├── js/
+│       │   ├── app.js                   # Frontend application logic
+│       │   ├── controls.js              # Probe controller + UI parameter controls
+│       │   ├── renderer3d.js            # Three.js 3D renderer, force visualizer, octree overlay
+│       │   └── websocket.js             # WebSocket client with auto-reconnect
+│       └── models/
+│           ├── bunny.obj                # Stanford bunny demo mesh
+│           └── teapot.obj               # Utah teapot demo mesh
 ├── tests/
 │   ├── __init__.py
 │   ├── test_collision.py                # Octree + SAT collision tests
 │   ├── test_physics.py                  # Spring force model + surface projection tests
-│   └── test_scene.py                    # Scene manager integration tests
+│   ├── test_scene.py                    # Scene manager integration tests
+│   ├── test_deformable.py              # Deformable body dynamics tests
+│   ├── test_mesh_cutter.py             # Mesh cutting algorithm tests
+│   ├── test_obj_loader.py              # OBJ parser tests
+│   ├── test_probe_modes.py             # Probe interaction mode tests
+│   └── test_spatial.py                  # Spatial index (AABB, octree, BVH) tests
 ├── docs/
 │   ├── architecture.md                  # System design documentation
 │   ├── haptic_theory.md                 # Physics, octrees, SAT, force models
 │   ├── development_history.md           # 2008 origins to 2026 reimplementation
 │   ├── references.md                    # 16 academic references
+│   ├── png/
+│   │   └── frontend.png                # Frontend screenshot
 │   └── svg/
 │       ├── app_screenshot.svg           # Application screenshot / mockup
 │       ├── architecture.svg             # System architecture diagram
 │       ├── collision_pipeline.svg       # Broad + narrow phase pipeline
+│       ├── deformable_model.svg         # Deformable body model diagram
 │       ├── force_model.svg              # Spring-damper force diagram
-│       └── octree_subdivision.svg       # Octree spatial subdivision illustration
+│       ├── octree_subdivision.svg       # Octree spatial subdivision illustration
+│       └── spatial_comparison.svg       # Spatial index comparison diagram
 ├── legacy/
 │   └── NitrogenoAdvanced/               # Original 2008 C++/CLI source code
 │       └── BigBangT/
@@ -181,6 +205,9 @@ UDEC_Haptic_SIM/
 │           ├── Octrees.cpp/.h           # Octree collision detection
 │           ├── Haptico.cpp/.h           # PHANToM haptic device interface
 │           └── agu00.obj                # Demo mesh file
+├── build.spec                           # PyInstaller spec file
+├── Build_PyInstaller.ps1                # PowerShell build script
+├── run_app.py                           # Uvicorn launcher with auto-browser
 ├── requirements.txt                     # Python dependencies
 └── __init__.py
 ```
@@ -278,6 +305,12 @@ The 2008 project at the Universidad de Concepcion used C++/CLI, OpenGL immediate
 5. Colgate, J.E. & Brown, J.M. (1994). Factors Affecting the Z-Width of a Haptic Display. *IEEE ICRA*, pp. 3205-3210.
 6. Meagher, D. (1982). Geometric Modeling Using Octree Encoding. *CGIP*, 19(2):129-147.
 7. Baraff, D. & Witkin, A. (1997). Physically Based Modeling. *SIGGRAPH Course Notes*.
+
+## Port
+
+**8006** -- http://localhost:8006
+
+---
 
 ## License
 
