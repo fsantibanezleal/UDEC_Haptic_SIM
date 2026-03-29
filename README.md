@@ -14,15 +14,24 @@ Haptic simulation enables users to feel virtual objects through force feedback. 
 
 ---
 
-## KPIs & Metrics
+## KPIs — Impact & Value
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Collision detection | <5ms for 276 triangles | <1ms (vectorized AABB batch) |
-| Spatial structures | 4 methods selectable | AABB, OBB, Octree, BVH |
-| Deformable solvers | MSD + XPBD | Semi-implicit Euler, 5-iter XPBD |
-| Force feedback | Spring-damper + friction | Kelvin-Voigt + Coulomb |
-| Test coverage | Comprehensive | 50+ tests passing |
+| KPI | Impact |
+|-----|--------|
+| Hardware elimination | $50K+ PHANToM device → $0 web browser interaction |
+| Platform modernization | 2008 C++/CLI → 2026 Python/Three.js (16-year technology leap) |
+| Deformable bodies | Soft tissue simulation capability not in original |
+| Educational accessibility | Anyone with a browser can explore haptic concepts |
+
+## Project Metrics & Status
+
+| Metric | Status |
+|--------|--------|
+| Tests | 50+ passing |
+| Spatial structures | 4/4 (AABB, OBB, Octree, BVH) |
+| Collision speed | <1ms for 276 triangles (vectorized AABB batch) |
+| Deformable solvers | MSD (semi-implicit Euler) + XPBD (5-iteration) |
+| Probe modes | 4 (free, grab, push, cut) |
 
 ---
 
