@@ -28,44 +28,39 @@ Haptic simulation enables users to feel virtual objects through force feedback. 
 
 ## Physics Model
 
-### Spring-Damper Force Feedback
-
-When the probe contacts an object surface, a restoring force is computed using a Kelvin-Voigt visco-elastic model (spring in parallel with dashpot):
+### Spring-Damper Force Feedback — Kelvin-Voigt Contact Model
+When the probe penetrates an object surface, a restoring force pushes it back using a Kelvin-Voigt visco-elastic model (spring in parallel with dashpot):
 
 ```
-F_total = -k * x - b * v
+F_total = −k · x − b · v
 ```
 
-where:
-- `k` -- spring stiffness (default: 0.2 N/m)
-- `x` -- displacement vector `(p_probe - p_contact)`
-- `b` -- viscous damping coefficient (default: 0.05)
-- `v` -- probe velocity vector
+where **k** is the spring stiffness (default: 0.2 N/m, tunable via UI), **x** is the penetration vector **(p_probe − p_contact)** pointing from the nearest surface point to the probe, **b** is the viscous damping coefficient (default: 0.05), and **v** is the probe velocity vector. The spring term provides position-dependent resistance; the damping term prevents oscillations and adds a "viscous feel" to the interaction. Without damping, the haptic loop becomes unstable above ~300 Hz.
 
 ![Force Model](docs/svg/force_model.svg)
 
-### Force Clamping
-
-Physical haptic devices have maximum continuous force limits (3.3 N for PHANToM Omni). Forces are clamped in magnitude while preserving direction:
+### Force Clamping — Hardware Safety Limit
+Physical haptic devices have maximum continuous force limits to protect the motor and the user. Forces are clamped in magnitude while preserving direction:
 
 ```
 if |F| > F_max:
-    F = F_max * (F / |F|)
+    F = F_max · (F / |F|)
 ```
 
-### Point-to-Triangle Surface Projection
+where **F_max = 3.3 N** for the PHANToM Omni device. This ensures the force vector always points in the physically correct direction, even when the computed spring force exceeds what the hardware can render.
 
-Finding the nearest surface point uses Voronoi-region barycentric coordinates (Ericson, 2004, Section 5.1.5). The algorithm classifies the query point into one of seven Voronoi regions of each triangle (3 vertices, 3 edges, 1 interior) and computes the projection accordingly.
+### Point-to-Triangle Surface Projection — Voronoi Region Classification
+Finding the nearest surface point uses Voronoi-region barycentric coordinates (Ericson, 2004, Section 5.1.5). The algorithm classifies the query point into one of seven Voronoi regions of each triangle (3 vertices, 3 edges, 1 interior) and computes the projection accordingly. This is the bottleneck operation in the force loop and must complete in <1ms for stable haptic rendering.
 
 ## Collision Detection
 
-### Octree Spatial Partitioning
-
-An octree recursively subdivides 3D space into 8 axis-aligned octants. Each leaf node stores references to triangles whose bounding boxes intersect that octant. Collision queries only test triangle pairs sharing a common leaf node, reducing O(n^2) brute-force complexity to approximately O(n log n).
+### Octree Spatial Partitioning — Hierarchical Space Subdivision
+An octree recursively subdivides 3D space into 8 axis-aligned octants, pruning empty regions of space from collision queries:
 
 ![Octree Subdivision](docs/svg/octree_subdivision.svg)
 
 ### Octree Construction
+Each node stores an axis-aligned bounding box and either 8 children or a list of triangle references:
 
 ```
 Node {
@@ -78,21 +73,17 @@ Node {
 Child octant index = (x >= cx) | ((y >= cy) << 1) | ((z >= cz) << 2)
 ```
 
-Subdivision criteria (from original C++ Octrees.cpp):
-- `min_triangles` -- minimum triangle count to subdivide (default: 4)
-- `min_occupancy` -- minimum occupancy ratio (default: 2%)
-- `max_depth` -- maximum tree depth (default: 8)
+The **bit-packing formula** maps a 3D position to one of 8 children in O(1). Subdivision criteria (from original C++ Octrees.cpp): **min_triangles** = 4 (don't split leaves with fewer), **min_occupancy** = 2% (stop if node is nearly empty), **max_depth** = 8 (prevents infinite recursion on degenerate geometry).
 
-### Separating Axis Theorem (SAT)
-
-Two convex objects do NOT intersect if and only if there exists a separating axis -- a direction along which their projections do not overlap.
+### Separating Axis Theorem (SAT) — Exact Triangle-Triangle Intersection
+Two convex objects do NOT intersect if and only if there exists a separating axis — a direction along which their projections do not overlap:
 
 For two triangles, the candidate separating axes are:
 - 2 face normals (one per triangle)
 - 9 edge-edge cross products (3 edges x 3 edges)
 - Total: **11 axes** to test
 
-If no separating axis is found among all 11 candidates, the triangles intersect.
+If no separating axis is found among all 11 candidates, the triangles provably intersect. This is both necessary and sufficient for convex shapes — making SAT an exact (not approximate) intersection test.
 
 ![Collision Pipeline](docs/svg/collision_pipeline.svg)
 
@@ -102,7 +93,7 @@ If no separating axis is found among all 11 candidates, the triangles intersect.
 |-------|--------|------------|
 | Broad phase | Octree spatial query | O(n log n) average |
 | Narrow phase | SAT triangle-triangle | O(1) per pair (11 axis tests) |
-| Brute-force baseline | All pairs | O(n^2) |
+| Brute-force baseline | All pairs | O(n²) |
 
 ---
 
