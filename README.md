@@ -1,40 +1,16 @@
 # UDEC Haptic SIM -- Haptic Simulation & Collision Detection
 
-![App Screenshot](docs/svg/app_screenshot.svg)
-
-## Overview
-
 A modern Python/FastAPI web application that recreates the 2008 C++/CLI haptic simulation from the Universidad de Concepcion (UdeC). The original project used OpenGL rendering and the SensAble PHANToM Omni haptic device for physical force feedback. This reimplementation replaces the hardware dependency with browser-based Three.js 3D rendering and mouse/slider interaction, while preserving the core simulation algorithms: octree-accelerated collision detection, Separating Axis Theorem (SAT) triangle intersection, and spring-damper force feedback.
 
 The system provides real-time WebSocket communication between a Python physics backend and a WebGL frontend, enabling interactive exploration of 3D scenes with collision highlighting and force vector visualization.
 
-![Architecture](docs/svg/architecture.svg)
+---
 
-## Frontend
+## Motivation & Problem
 
-![Frontend](docs/png/frontend.png)
+Haptic simulation enables users to feel virtual objects through force feedback. The core challenge is real-time collision detection between 3D meshes and computing contact forces within strict latency requirements (~1kHz for stable haptics, ~300Hz for visual rendering).
 
-## Quick Start
-
-```bash
-# Clone and enter the project
-cd UDEC_Haptic_SIM
-
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/Scripts/activate   # Windows
-# source .venv/bin/activate     # Linux / macOS
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Launch the server
-python -m uvicorn app.main:app --port 8006
-
-# Open http://localhost:8006 in your browser
-```
-
-The default scene loads two overlapping cubes and a sphere for immediate testing of collision detection and force feedback.
+---
 
 ## Physics Model
 
@@ -114,6 +90,24 @@ If no separating axis is found among all 11 candidates, the triangles intersect.
 | Narrow phase | SAT triangle-triangle | O(1) per pair (11 axis tests) |
 | Brute-force baseline | All pairs | O(n^2) |
 
+---
+
+## Application Screenshot
+
+![App Screenshot](docs/svg/app_screenshot.svg)
+
+## Frontend
+
+![Frontend](docs/png/frontend.png)
+
+---
+
+## Architecture
+
+![Architecture](docs/svg/architecture.svg)
+
+---
+
 ## Features
 
 - **3D Triangle Mesh Rendering** with per-face collision highlighting (Three.js / WebGL)
@@ -128,6 +122,51 @@ If no separating axis is found among all 11 candidates, the triangles intersect.
 - **Default Demo Scene** -- two overlapping cubes + sphere for immediate testing
 - **OrbitControls Camera** -- orbit, zoom, and pan the 3D viewport
 - **Force Vector Visualization** -- arrow rendering for real-time force feedback display
+
+---
+
+## Quick Start
+
+```bash
+# Clone and enter the project
+cd UDEC_Haptic_SIM
+
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/Scripts/activate   # Windows
+# source .venv/bin/activate     # Linux / macOS
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch the server
+python -m uvicorn app.main:app --port 8006
+
+# Open http://localhost:8006 in your browser
+```
+
+The default scene loads two overlapping cubes and a sphere for immediate testing of collision detection and force feedback.
+
+### Running Tests
+
+```bash
+# Individual test modules
+python tests/test_collision.py
+python tests/test_physics.py
+python tests/test_scene.py
+
+# Or run all tests
+python -m pytest tests/ -v
+```
+
+Tests include:
+- Octree construction and spatial query correctness
+- SAT triangle-triangle intersection (overlapping, separated, edge cases)
+- Spring force computation, clamping, and damping
+- Voronoi-region surface projection (vertex, edge, interior cases)
+- Scene manager integration (default scene, OBJ loading, simulation step)
+
+---
 
 ## Project Structure
 
@@ -212,6 +251,8 @@ UDEC_Haptic_SIM/
 └── __init__.py
 ```
 
+---
+
 ## API Documentation
 
 ### REST Endpoints
@@ -255,24 +296,20 @@ UDEC_Haptic_SIM/
 | `contact_threshold` | float | 0.3 | Probe-surface contact distance |
 | `show_octree` | bool | false | Toggle octree wireframe overlay |
 
-## Running Tests
+---
 
-```bash
-# Individual test modules
-python tests/test_collision.py
-python tests/test_physics.py
-python tests/test_scene.py
+## Port
 
-# Or run all tests
-python -m pytest tests/ -v
-```
+**8006** -- http://localhost:8006
 
-Tests include:
-- Octree construction and spatial query correctness
-- SAT triangle-triangle intersection (overlapping, separated, edge cases)
-- Spring force computation, clamping, and damping
-- Voronoi-region surface projection (vertex, edge, interior cases)
-- Scene manager integration (default scene, OBJ loading, simulation step)
+---
+
+## Documentation
+
+- [System Architecture](docs/architecture.md) -- Component design and data flow
+- [Haptic Theory](docs/haptic_theory.md) -- Physics foundations, octrees, SAT, force models
+- [Development History](docs/development_history.md) -- 2008 C++/CLI origins to 2026 Python reimplementation
+- [References](docs/references.md) -- 16 academic references
 
 ## Tech Stack
 
@@ -285,16 +322,11 @@ Tests include:
 - **Three.js** -- WebGL 3D rendering (meshes, wireframes, arrows)
 - **WebSocket** -- Real-time bidirectional simulation streaming
 
-## Documentation
-
-- [System Architecture](docs/architecture.md) -- Component design and data flow
-- [Haptic Theory](docs/haptic_theory.md) -- Physics foundations, octrees, SAT, force models
-- [Development History](docs/development_history.md) -- 2008 C++/CLI origins to 2026 Python reimplementation
-- [References](docs/references.md) -- 16 academic references
-
 ## Original Project
 
 The 2008 project at the Universidad de Concepcion used C++/CLI, OpenGL immediate-mode rendering, and the SensAble PHANToM Omni haptic device (6-DOF input, 3-DOF force output). The original source code is preserved in `legacy/NitrogenoAdvanced/` for reference, including the octree implementation (`Octrees.cpp`), rigid body class (`Cuerpo.cpp`), OBJ loader (`Cargador.cpp`), and haptic device interface (`Haptico.cpp`).
+
+---
 
 ## References
 
@@ -305,10 +337,6 @@ The 2008 project at the Universidad de Concepcion used C++/CLI, OpenGL immediate
 5. Colgate, J.E. & Brown, J.M. (1994). Factors Affecting the Z-Width of a Haptic Display. *IEEE ICRA*, pp. 3205-3210.
 6. Meagher, D. (1982). Geometric Modeling Using Octree Encoding. *CGIP*, 19(2):129-147.
 7. Baraff, D. & Witkin, A. (1997). Physically Based Modeling. *SIGGRAPH Course Notes*.
-
-## Port
-
-**8006** -- http://localhost:8006
 
 ---
 
