@@ -23,19 +23,17 @@ Haptic simulation enables users to feel virtual objects through force feedback. 
 | Deformable bodies | Soft tissue simulation capability not in original |
 | Educational accessibility | Anyone with a browser can explore haptic concepts |
 
-## Project Metrics & Status
+## Application Screenshot
 
-| Metric | Status |
-|--------|--------|
-| Tests | 50+ passing |
-| Spatial structures | 4/4 (AABB, OBB, Octree, BVH) |
-| Collision speed | <1ms for 276 triangles (vectorized AABB batch) |
-| Deformable solvers | MSD (semi-implicit Euler) + XPBD (5-iteration) |
-| Probe modes | 4 (free, grab, push, cut) |
+![App Screenshot](docs/svg/app_screenshot.svg)
+
+## Frontend
+
+![Frontend](docs/png/frontend.png)
 
 ---
 
-## Physics Model
+## Technical Approach — Collision & Force Physics
 
 ### Spring-Damper Force Feedback — Kelvin-Voigt Contact Model
 When the probe penetrates an object surface, a restoring force pushes it back using a Kelvin-Voigt visco-elastic model (spring in parallel with dashpot):
@@ -60,8 +58,6 @@ where **F_max = 3.3 N** for the PHANToM Omni device. This ensures the force vect
 
 ### Point-to-Triangle Surface Projection — Voronoi Region Classification
 Finding the nearest surface point uses Voronoi-region barycentric coordinates (Ericson, 2004, Section 5.1.5). The algorithm classifies the query point into one of seven Voronoi regions of each triangle (3 vertices, 3 edges, 1 interior) and computes the projection accordingly. This is the bottleneck operation in the force loop and must complete in <1ms for stable haptic rendering.
-
-## Collision Detection
 
 ### Octree Spatial Partitioning — Hierarchical Space Subdivision
 An octree recursively subdivides 3D space into 8 axis-aligned octants, pruning empty regions of space from collision queries:
@@ -106,16 +102,6 @@ If no separating axis is found among all 11 candidates, the triangles provably i
 
 ---
 
-## Application Screenshot
-
-![App Screenshot](docs/svg/app_screenshot.svg)
-
-## Frontend
-
-![Frontend](docs/png/frontend.png)
-
----
-
 ## Architecture
 
 ![Architecture](docs/svg/architecture.svg)
@@ -136,6 +122,16 @@ If no separating axis is found among all 11 candidates, the triangles provably i
 - **Default Demo Scene** -- two overlapping cubes + sphere for immediate testing
 - **OrbitControls Camera** -- orbit, zoom, and pan the 3D viewport
 - **Force Vector Visualization** -- arrow rendering for real-time force feedback display
+
+## Project Metrics & Status
+
+| Metric | Status |
+|--------|--------|
+| Tests | 50+ passing |
+| Spatial structures | 4/4 (AABB, OBB, Octree, BVH) |
+| Collision speed | <1ms for 276 triangles (vectorized AABB batch) |
+| Deformable solvers | MSD (semi-implicit Euler) + XPBD (5-iteration) |
+| Probe modes | 4 (free, grab, push, cut) |
 
 ---
 
