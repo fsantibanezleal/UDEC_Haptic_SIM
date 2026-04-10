@@ -62,7 +62,7 @@ v_rot = v·cos(θ) + (k x v)·sin(θ) + k·(k·v)·(1-cos(θ))
 ```
 where k is the unit rotation axis and θ is the rotation angle. This provides axis-angle rotation without constructing a full rotation matrix.
 
-> See `docs/diagrams/architecture.svg` for visual reference.
+> See `docs/svg/architecture.svg` for visual reference.
 
 ### Architecture Mapping
 
