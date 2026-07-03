@@ -1,5 +1,8 @@
 # UDEC Haptic SIM -- Haptic Simulation & Collision Detection
 
+[![License](https://img.shields.io/github/license/fsantibanezleal/UDEC_Haptic_SIM)](LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-live-2ea44f)](https://haptic.fasl-work.com)
+
 A modern Python/FastAPI web application that recreates the 2008 C++/CLI haptic simulation from the Universidad de Concepcion (UdeC). The original project used OpenGL rendering and the SensAble PHANToM Omni haptic device for physical force feedback. This reimplementation replaces the hardware dependency with browser-based Three.js 3D rendering and mouse/slider interaction, while preserving the core simulation algorithms: octree-accelerated collision detection, Separating Axis Theorem (SAT) triangle intersection, and spring-damper force feedback.
 
 The system provides real-time WebSocket communication between a Python physics backend and a WebGL frontend, enabling interactive exploration of 3D scenes with collision highlighting and force vector visualization.
